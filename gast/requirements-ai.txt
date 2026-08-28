@@ -1,0 +1,87 @@
+# =============================================================================
+#  KI-Bootcamp VM — Python-Bibliotheken
+#  Python 3.12, installiert mit uv in ~/bootcamp/.venv
+#
+#  Bewusst OHNE PyTorch/transformers: spart rund 3 GB im OVA und die
+#  Embeddings laufen über ONNX auf der CPU schnell genug für die Übungen.
+#  Wer lokale Modelle will, nimmt Ollama — nicht den Umweg über torch.
+# =============================================================================
+
+# --- LLM-Zugang (OpenRouter ist OpenAI-kompatibel) ---
+openai>=1.60
+httpx>=0.27
+python-dotenv>=1.0
+tenacity>=9.0                 # Retry bei Rate-Limits — kommt am Bootcamp garantiert vor
+tiktoken>=0.8                 # Tokens zählen, bevor sie Geld kosten
+
+# --- Agenten und Orchestrierung ---
+pydantic>=2.9
+pydantic-ai-slim[openai]>=0.0.20   # typisierte Agenten, guter Einstieg
+langchain>=0.3
+langchain-openai>=0.2
+langchain-community>=0.3
+langchain-text-splitters>=0.3
+langgraph>=0.2                     # Zustandsbehaftete Agenten-Graphen
+
+# Steht namentlich auf Tag 3 des Accenture-Programms — muss laufen.
+# smolagents lässt Modelle Python-Code schreiben und ausführen. Genau deshalb
+# im Unterricht nur mit Docker-Executor arbeiten, nie mit dem lokalen.
+smolagents>=1.5
+ddgs>=9.0                          # Websuche als Werkzeug für smolagents
+
+# --- Model Context Protocol: wie Agenten an Werkzeuge kommen (Tag 3) ---
+mcp>=1.2
+fastmcp>=2.0
+
+# --- RAG und Vektorsuche ---
+chromadb>=0.5                 # bringt ONNX-Embeddings mit, kein torch nötig
+rank-bm25>=0.2                # zeigt, dass Retrieval nicht nur Vektoren ist
+
+# --- Dokumente einlesen ---
+pypdf>=5.0
+python-docx>=1.1
+openpyxl>=3.1
+markitdown>=0.0.1a2
+beautifulsoup4>=4.12
+lxml>=5.3
+
+# --- Eigene KI-Apps bauen ---
+streamlit>=1.40              # schnellster Weg vom Prompt zum Prototyp
+gradio>=5.5
+fastapi>=0.115
+uvicorn[standard]>=0.32
+
+# --- Datenarbeit und Notebooks ---
+pandas>=2.2
+numpy>=2.0
+matplotlib>=3.9
+seaborn>=0.13
+scikit-learn>=1.5
+jupyterlab>=4.3
+ipykernel>=6.29
+ipywidgets>=8.1
+
+# --- Bilder ---
+pillow>=11.0
+
+# --- Sprache zu Text (Kammer 6: der Auftrag kommt als Tonaufnahme) ---
+# faster-whisper nutzt CTranslate2 statt PyTorch: rund 2.5 GB weniger im Image
+# und auf 4 CPU-Kernen schnell genug. 10 Minuten Audio brauchen etwa 2 Minuten.
+faster-whisper>=1.1
+
+# --- Werkzeugkasten ---
+rich>=13.9                   # lesbare Terminalausgabe
+typer>=0.15
+tqdm>=4.67
+requests>=2.32
+pyyaml>=6.0
+
+# --- Code-Hygiene ---
+ruff>=0.8
+pytest>=8.3
+
+# --- Messen statt hoffen (BIT-Tage 4-6) ---
+# Ein KI-System zu bauen ist einfach. Zu belegen, dass es funktioniert, ist
+# die eigentliche Ingenieurleistung — und der rote Faden der BIT-Tage.
+deepeval>=2.0                 # Bewertung von Antworten gegen ein Goldset
+jsonschema>=4.23              # Ausgaben validieren statt vertrauen

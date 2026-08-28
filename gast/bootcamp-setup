@@ -1,0 +1,110 @@
+#!/usr/bin/env bash
+# =============================================================================
+#  KI-Bootcamp — Ersteinrichtung
+#  Läuft beim ersten Anmelden automatisch und trägt den persönlichen
+#  OpenRouter-Schlüssel ein. Danach jederzeit erneut aufrufbar:
+#      bootcamp-setup
+# =============================================================================
+set -Eeuo pipefail
+
+ENVFILE="$HOME/.config/bootcamp/env"
+AUTOSTART="$HOME/.config/autostart/bootcamp-setup.desktop"
+mkdir -p "$(dirname "$ENVFILE")"
+
+blau()  { printf '\033[1;34m%s\033[0m\n' "$*"; }
+gruen() { printf '\033[0;32m%s\033[0m\n' "$*"; }
+rot()   { printf '\033[0;31m%s\033[0m\n' "$*"; }
+
+clear
+cat <<'BANNER'
+╔══════════════════════════════════════════════════════════════╗
+║   KI-Bootcamp BIT · 26.–28. Oktober 2026                     ║
+║   Ersteinrichtung deiner Arbeitsumgebung                     ║
+╚══════════════════════════════════════════════════════════════╝
+BANNER
+
+# Schon eingerichtet?
+set -a; [[ -f "$ENVFILE" ]] && . "$ENVFILE"; set +a
+if [[ -n "${OPENROUTER_API_KEY:-}" ]]; then
+    gruen "Ein Schlüssel ist bereits hinterlegt."
+    read -rp "Ersetzen? [j/N] " a
+    [[ "${a,,}" != "j" ]] && { rm -f "$AUTOSTART"; exit 0; }
+fi
+
+cat <<'TEXT'
+
+Du brauchst deinen persönlichen OpenRouter-Schlüssel. Den hast du von der
+Bootcamp-Leitung bekommen; er beginnt mit  sk-or-v1-
+
+Wichtig:
+  · Der Schlüssel gehört dir allein. Nicht weitergeben, nicht in Git,
+    nicht in einen Chat kopieren.
+  · Er hat ein Guthabenlimit. Läuft es aus, melde dich bei der Betreuung.
+  · Keine BIT-Daten, keine Personendaten und keine Amtsgeheimnisse in
+    diese VM oder in ein Modell. Übungsdaten sind synthetisch oder öffentlich.
+
+TEXT
+
+# Eingabe mit Formatprüfung
+for versuch in 1 2 3; do
+    read -rsp "Schlüssel einfügen (Eingabe bleibt unsichtbar): " KEY; echo
+    KEY="$(echo -n "$KEY" | tr -d '[:space:]')"
+    if [[ "$KEY" =~ ^sk-or-v1-[A-Za-z0-9]{16,}$ ]]; then
+        break
+    fi
+    rot "Das sieht nicht nach einem OpenRouter-Schlüssel aus (Versuch $versuch von 3)."
+    [[ $versuch -eq 3 ]] && { rot "Abgebrochen. Melde dich bei der Betreuung."; exit 1; }
+done
+
+blau "\nPrüfe den Schlüssel gegen OpenRouter …"
+ANTWORT="$(curl -s -w '\n%{http_code}' -H "Authorization: Bearer $KEY" \
+           https://openrouter.ai/api/v1/key || echo -e "\n000")"
+CODE="$(tail -n1 <<<"$ANTWORT")"
+BODY="$(sed '$d' <<<"$ANTWORT")"
+
+case "$CODE" in
+  200) gruen "Schlüssel gültig."
+       if command -v jq >/dev/null; then
+           LIMIT=$(jq -r '.data.limit // "kein Limit"'           <<<"$BODY")
+           REST=$(jq -r  '.data.limit_remaining // "unbekannt"'  <<<"$BODY")
+           echo "  Limit: $LIMIT USD · verbleibend: $REST USD"
+       fi ;;
+  401|403) rot "Der Schlüssel wurde abgelehnt. Bitte bei der Betreuung melden."; exit 1 ;;
+  000) rot "Keine Verbindung zu OpenRouter."
+       echo "  WLAN prüfen. Im BIT-Netz ggf. zuerst:"
+       echo "    ~/bootcamp/scripts/proxy-setup.sh http://proxy:port"
+       exit 1 ;;
+  *)   rot "Unerwartete Antwort (HTTP $CODE). Trotzdem speichern?"
+       read -rp "  [j/N] " a; [[ "${a,,}" != "j" ]] && exit 1 ;;
+esac
+
+# Speichern — der Schlüssel steht an genau einer Stelle, alle Werkzeuge lesen sie.
+cat >"$ENVFILE" <<EOF
+# Persoenlicher OpenRouter-Zugang — nicht weitergeben.
+OPENROUTER_API_KEY=$KEY
+OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
+OPENAI_API_KEY=$KEY
+OPENAI_BASE_URL=https://openrouter.ai/api/v1
+EOF
+chmod 600 "$ENVFILE"
+rm -f "$AUTOSTART"
+
+gruen "\nGespeichert unter $ENVFILE (nur für dich lesbar)."
+
+cat <<'ENDE'
+
+╔══════════════════════════════════════════════════════════════╗
+║   Fertig. Öffne ein neues Terminal, dann:                    ║
+║                                                              ║
+║     bc                      Python-Umgebung aktivieren       ║
+║     webui                   Open WebUI starten (Port 3000)   ║
+║     opencode                Coding-Agent im Terminal         ║
+║     code ~/bootcamp         VS Code öffnen                   ║
+║     ~/bootcamp/scripts/selftest.sh    alles prüfen           ║
+║                                                              ║
+║   Jetzt in VirtualBox einen Snapshot anlegen:                ║
+║   Machine → Take Snapshot → "Startzustand"                   ║
+╚══════════════════════════════════════════════════════════════╝
+ENDE
+
+read -rp "Enter zum Schliessen. "

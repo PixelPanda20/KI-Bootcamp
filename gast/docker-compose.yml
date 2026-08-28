@@ -1,0 +1,96 @@
+# =============================================================================
+#  KI-Bootcamp VM — Open WebUI gegen OpenRouter
+#
+#  Start:  cd ~/bootcamp/docker && docker compose up -d      (oder: webui)
+#  Web:    http://localhost:3000
+#
+#  Der Schlüssel kommt aus ~/.config/bootcamp/env und steht NICHT in dieser
+#  Datei — sie darf ins Image, der Schlüssel nicht.
+# =============================================================================
+
+services:
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open-webui
+    restart: unless-stopped
+    ports:
+      - "3000:8080"
+    env_file:
+      - ${HOME}/.config/bootcamp/env
+    environment:
+      # OpenRouter spricht das OpenAI-Protokoll
+      OPENAI_API_BASE_URL: "https://openrouter.ai/api/v1"
+      OPENAI_API_KEY: "${OPENROUTER_API_KEY}"
+
+      # OpenRouter liefert mehrere tausend Modelle. Ohne Allowlist ist die
+      # Modellauswahl unbrauchbar und die Admin-Seite braucht 10-15 Sekunden.
+      ENABLE_BASE_MODELS_CACHE: "True"
+
+      # Ein Konto pro VM. Erste Registrierung wird Admin.
+      WEBUI_NAME: "BIT KI-Bootcamp"
+      WEBUI_AUTH: "True"
+      ENABLE_SIGNUP: "True"        # nach dem ersten Login auf False setzen
+      DEFAULT_USER_ROLE: "admin"
+
+      # Keine Telemetrie nach aussen — Vorgabe Bundesverwaltung
+      ANONYMIZED_TELEMETRY: "False"
+      DO_NOT_TRACK: "true"
+      SCARF_NO_ANALYTICS: "true"
+
+      # Ollama nur im Standardprofil; im Sparprofil auskommentieren
+      OLLAMA_BASE_URL: "http://host.docker.internal:11434"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - open-webui-data:/app/backend/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  # ---------------------------------------------------------------------------
+  # Optional für die RAG-Vertiefung. Standardmässig aus, damit die VM auf
+  # 6 GB RAM nicht ins Swappen kommt:  docker compose --profile rag up -d
+  # ---------------------------------------------------------------------------
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: qdrant
+    profiles: ["rag"]
+    restart: unless-stopped
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant-data:/qdrant/storage
+
+  # ---------------------------------------------------------------------------
+  # n8n — Low-Code-Automatisierung, selbst gehostet.
+  #
+  # Auf Tag 2 arbeiten die Lernenden mit einer Low-Code-Plattform von Accenture.
+  # Diese Lizenz haben sie danach nicht mehr. n8n ist die quelloffene Variante,
+  # die im BIT weiterlebt — damit reisst der Faden nach Tag 3 nicht ab.
+  #
+  #   docker compose --profile lcnc up -d      →  http://localhost:5678
+  # ---------------------------------------------------------------------------
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    container_name: n8n
+    profiles: ["lcnc"]
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    env_file:
+      - ${HOME}/.config/bootcamp/env
+    environment:
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_VERSION_NOTIFICATIONS_ENABLED: "false"
+      N8N_SECURE_COOKIE: "false"        # nur lokal, kein HTTPS in der VM
+      GENERIC_TIMEZONE: "Europe/Zurich"
+    volumes:
+      - n8n-data:/home/node/.n8n
+
+volumes:
+  open-webui-data:
+  qdrant-data:
+  n8n-data:
