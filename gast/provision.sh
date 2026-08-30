@@ -397,18 +397,31 @@ ok "OpenCode und Continue konfiguriert, Schlüssel folgt beim ersten Start"
 log "8/11  Dienste vorbereiten"
 # -----------------------------------------------------------------------------
 cp "$HIER/docker-compose.yml" "$WORK/docker/docker-compose.yml"
-sudo -u "$BENUTZER" docker pull ghcr.io/open-webui/open-webui:main 2>/dev/null \
-    || docker pull ghcr.io/open-webui/open-webui:main \
+# Die Abbild-Kennungen stehen ausschliesslich in docker-compose.yml. Vorher
+# standen sie zusaetzlich hier fest verdrahtet - zwei Stellen, die zuverlaessig
+# auseinanderlaufen, sobald jemand nur eine davon pflegt.
+bild() {
+    awk -v svc="  $1:" '
+        $0 == svc                     { drin = 1; next }
+        drin && /^  [a-z]/            { exit }
+        drin && /^[[:space:]]*image:/ { sub(/^[[:space:]]*image:[[:space:]]*/, ""); print; exit }
+    ' "$WORK/docker/docker-compose.yml"
+}
+OWUI_BILD="$(bild open-webui)"
+PORTAINER_BILD="$(bild portainer)"
+
+sudo -u "$BENUTZER" docker pull "$OWUI_BILD" 2>/dev/null \
+    || docker pull "$OWUI_BILD" \
     || warn "Open-WebUI-Image nicht vorgezogen, lädt beim ersten Start"
-ok "Open WebUI"
+ok "Open WebUI ($OWUI_BILD)"
 
 # Portainer-Passwort über Datei vorgeben. Sonst verlangt Portainer beim ersten
 # Start binnen fünf Minuten ein Konto — eine Frist, die in einem verteilten
 # Abbild längst abgelaufen ist. Mindestens zwölf Zeichen sind Pflicht.
 printf 'bootcamp2026' > "$HEIM/.config/bootcamp/portainer-admin"
 chmod 600 "$HEIM/.config/bootcamp/portainer-admin"
-docker pull portainer/portainer-ce:lts >/dev/null 2>&1 \
-    && ok "Portainer (docker compose --profile tools up -d)" \
+docker pull "$PORTAINER_BILD" >/dev/null 2>&1 \
+    && ok "Portainer $PORTAINER_BILD (docker compose --profile tools up -d)" \
     || warn "Portainer-Image nicht vorgezogen"
 
 # Open WebUI bei jeder Anmeldung starten. Als systemd-Benutzereinheit, damit
@@ -435,46 +448,47 @@ log "9/11  Desktop und Feinschliff"
 if [[ -f "$HIER/desktop/wallpaper.jpg" ]]; then
     sudo install -Dm644 "$HIER/desktop/wallpaper.jpg" /usr/share/backgrounds/ki-bootcamp.jpg
 
-    # XFCE benennt die Hintergrundeigenschaft nach dem erkannten Monitor
-    # ("monitorVirtual-1", "monitorVMware Virtual Display", ...). Welcher Name
-    # es wird, steht zur Provisionierungszeit nicht fest, weil noch keine
-    # Sitzung lief. Deshalb setzt ein Autostart-Skript alle vorhandenen
-    # Eigenschaften. Idempotent und kostet nichts.
+    # GNOME haelt diese Werte pro Benutzer in dconf, und dconf braucht eine
+    # laufende Sitzung. Bei der Provisionierung ueber SSH gibt es keine.
+    # Deshalb setzt ein Autostart-Skript sie beim ersten Anmelden. Idempotent.
+    #
+    # Vorher stand hier xfconf-query fuer XFCE. Auf Debian mit GNOME ist das
+    # Kommando nicht installiert, das Skript lief also bei jeder Anmeldung
+    # wirkungslos durch: Hintergrundbild ungesetzt, Bildschirmsperre aktiv.
+    # In der Vorlagen-VM nachgemessen, 08/2026.
     mkdir -p "$HEIM/.local/bin" "$HEIM/.config/autostart"
-    cat >"$HEIM/.local/bin/xfce-anpassen.sh" <<'EOF'
+    rm -f "$HEIM/.local/bin/xfce-anpassen.sh"      # Vorgaenger, falls vorhanden
+    cat >"$HEIM/.local/bin/desktop-anpassen.sh" <<'ENDE_DESKTOP'
 #!/usr/bin/env bash
+# Oberflaechenvorgaben fuer das KI-Bootcamp (GNOME).
 IMG=/usr/share/backgrounds/ki-bootcamp.jpg
 [ -f "$IMG" ] || exit 0
-for p in $(xfconf-query -c xfce4-desktop -l 2>/dev/null | grep -E 'last-image$'); do
-    xfconf-query -c xfce4-desktop -p "$p" -s "$IMG"
-done
-for p in $(xfconf-query -c xfce4-desktop -l 2>/dev/null | grep -E 'image-style$'); do
-    xfconf-query -c xfce4-desktop -p "$p" -s 5      # 5 = zoomed, füllt ohne Verzerrung
-done
-xfconf-query -c xsettings -p /Net/ThemeName        -s "Adwaita-dark"     2>/dev/null
-xfconf-query -c xsettings -p /Net/IconThemeName    -s "Adwaita"          2>/dev/null
+command -v gsettings >/dev/null || exit 0
+
+gsettings set org.gnome.desktop.background picture-uri      "file://$IMG"
+gsettings set org.gnome.desktop.background picture-uri-dark "file://$IMG"
+gsettings set org.gnome.desktop.background picture-options  'zoom'
+gsettings set org.gnome.desktop.interface  color-scheme     'prefer-dark'
+
 # Bildschirmsperre aus. Ein Lernender, der sich mitten in einer Übung aussperrt
 # und das Passwort vergisst, kostet mehr Zeit als die Sperre je schützt.
-xfconf-query -c xfce4-screensaver -p /saver/enabled -n -t bool -s false  2>/dev/null
-xfconf-query -c xfce4-power-manager -p /xfce4-power-manager/blank-on-ac -n -t int -s 0 2>/dev/null
-EOF
-    chmod +x "$HEIM/.local/bin/xfce-anpassen.sh"
-    cat >"$HEIM/.config/autostart/ki-bootcamp-desktop.desktop" <<'EOF'
+gsettings set org.gnome.desktop.screensaver lock-enabled false
+gsettings set org.gnome.desktop.session     idle-delay     0
+ENDE_DESKTOP
+    chmod +x "$HEIM/.local/bin/desktop-anpassen.sh"
+    cat >"$HEIM/.config/autostart/ki-bootcamp-desktop.desktop" <<'ENDE_AUTOSTART'
 [Desktop Entry]
 Type=Application
 Name=KI-Bootcamp Desktop
-Exec=bash -c "sleep 3; $HOME/.local/bin/xfce-anpassen.sh"
+Exec=bash -c "sleep 3; $HOME/.local/bin/desktop-anpassen.sh"
 NoDisplay=true
 X-GNOME-Autostart-enabled=true
-EOF
+ENDE_AUTOSTART
 
-    # Anmeldebildschirm gleich mit
-    if [[ -f /etc/lightdm/lightdm-gtk-greeter.conf ]]; then
-        sudo sed -i '/^background=/d' /etc/lightdm/lightdm-gtk-greeter.conf
-        sudo sed -i '/^\[greeter\]/a background=/usr/share/backgrounds/ki-bootcamp.jpg' \
-            /etc/lightdm/lightdm-gtk-greeter.conf
-    fi
-    ok "Hintergrundbild und XFCE-Vorgaben"
+    # Der Anmeldebildschirm bleibt bewusst unangetastet: GDM liest sein
+    # Hintergrundbild nicht aus einer Konfigurationsdatei, sondern aus einer
+    # kompilierten gresource. Das umzubauen ueberlebt keine GNOME-Aktualisierung.
+    ok "Hintergrundbild und GNOME-Vorgaben"
 fi
 
 # Ersteinrichtung beim ersten Anmelden
@@ -483,7 +497,7 @@ cat >"$HEIM/.config/autostart/bootcamp-setup.desktop" <<'EOF'
 [Desktop Entry]
 Type=Application
 Name=KI-Bootcamp Ersteinrichtung
-Exec=sh -c 'sleep 5; xfce4-terminal --title="KI-Bootcamp Ersteinrichtung" -e bootcamp-setup'
+Exec=sh -c 'sleep 5; x-terminal-emulator -e bootcamp-setup'
 Terminal=false
 X-GNOME-Autostart-enabled=true
 EOF
@@ -582,6 +596,11 @@ OFFEN(){ printf '  \033[0;33m○\033[0m %s\n     \033[0;33m→ %s\033[0m\n' "$1"
 NEIN() { printf '  \033[0;31m✗\033[0m %s\n     \033[0;31m→ %s\033[0m\n' "$1" "$2"; fehler=$((fehler+1)); }
 chk()  { if eval "$2" >/dev/null 2>&1; then JA "$1"; else NEIN "$1" "${3:-fehlt}"; fi; }
 
+# Per SSH oder aus dem Menue gestartet fehlen die Pfade, die erst .bashrc setzt.
+# Ohne diese Zeile meldet der Test uv, OpenCode, promptfoo und lazydocker als
+# fehlend, obwohl alle vier installiert sind - in der VM gemessen, 08/2026.
+export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$HOME/.opencode/bin:$PATH"
+
 echo "── Werkzeuge ──"
 chk "Python"      "python3 --version"
 chk "uv"          "command -v uv"
@@ -632,7 +651,7 @@ fi
 echo "── Python-Umgebung ──"
 if source ~/bootcamp/.venv/bin/activate 2>/dev/null; then
     for m in openai httpx pydantic chromadb streamlit gradio fastapi pandas \
-             langchain langgraph smolagents pydantic_ai mcp faster_whisper; do
+             langchain langgraph smolagents pydantic_ai mcp fastmcp faster_whisper; do
       chk "import $m" "python -c 'import $m'" "uv pip install $m"
     done
     echo "── Vorgeladene Modelle ──"

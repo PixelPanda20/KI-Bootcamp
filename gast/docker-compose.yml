@@ -20,7 +20,11 @@ services:
   # arbeiten, und die Grundlage der Übung "Web-KI-Chat selbst betreiben".
   # ---------------------------------------------------------------------------
   open-webui:
-    image: ghcr.io/open-webui/open-webui:main
+    # Feste Version statt :main. Gemessen am 30.08.2026: die Kennung :main war
+    # seit dem Bau dieser Vorlage bereits weitergewandert (installiert
+    # sha256:c792953…, Registry sha256:1d023df6…). Bei dreissig verteilten
+    # Kopien muss zweimal Bauen zweimal dasselbe ergeben.
+    image: ghcr.io/open-webui/open-webui:0.11.1
     container_name: open-webui
     restart: unless-stopped
     ports:
@@ -72,7 +76,7 @@ services:
   # Beispiel dafür, warum Berechtigungen mehr zählen als gute Absichten.
   # ---------------------------------------------------------------------------
   portainer:
-    image: portainer/portainer-ce:lts
+    image: portainer/portainer-ce:2.33.2
     container_name: portainer
     profiles: ["tools"]
     restart: unless-stopped
@@ -89,7 +93,7 @@ services:
   # die VM auf 6 GB nicht ins Auslagern kommt.
   # ---------------------------------------------------------------------------
   qdrant:
-    image: qdrant/qdrant:latest
+    image: qdrant/qdrant:v1.16.1
     container_name: qdrant
     profiles: ["rag"]
     restart: unless-stopped
@@ -107,7 +111,7 @@ services:
   # Kurs abreisst.
   # ---------------------------------------------------------------------------
   n8n:
-    image: docker.n8n.io/n8nio/n8n:latest
+    image: docker.n8n.io/n8nio/n8n:1.120.4
     container_name: n8n
     profiles: ["lcnc"]
     restart: unless-stopped

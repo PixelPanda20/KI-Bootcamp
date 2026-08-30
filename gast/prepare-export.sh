@@ -34,7 +34,7 @@ cat >~/.config/autostart/bootcamp-setup.desktop <<'EOF'
 [Desktop Entry]
 Type=Application
 Name=KI-Bootcamp Ersteinrichtung
-Exec=sh -c 'sleep 5; xfce4-terminal --title="KI-Bootcamp Ersteinrichtung" -e bootcamp-setup'
+Exec=sh -c 'sleep 5; x-terminal-emulator -e bootcamp-setup'
 Terminal=false
 X-GNOME-Autostart-enabled=true
 EOF
@@ -67,6 +67,27 @@ echo "▶ Freien Speicher nullen (dauert einige Minuten)"
 sudo dd if=/dev/zero of=/EMPTY bs=1M status=progress 2>/dev/null || true
 sudo rm -f /EMPTY
 sync
+
+# -----------------------------------------------------------------------------
+#  GANZ ZUM SCHLUSS: die Bauzugaenge entfernen
+#
+#  Diese Reihenfolge ist nicht Geschmackssache. Steht der Block frueher, entzieht
+#  sich das Skript selbst die Rechte und scheitert beim naechsten sudo-Aufruf mit
+#  "a terminal is required to read the password" - abgekoppelt gestartet gibt es
+#  kein Terminal, das nachfragen koennte. Der Rest liefe dann unbemerkt ins Leere.
+#
+#  openssh-server gehoert nicht in die Vorlage: die Desktop-ISO bringt ihn nicht
+#  mit, er wird nur fuer den Bau nachinstalliert. In dreissig verteilten Kopien
+#  mit dem Passwort bootcamp/bootcamp hat er nichts verloren. Die zugehoerige
+#  Portweiterleitung auf dem Host ebenfalls entfernen:
+#      VBoxManage modifyvm <name> --natpf1 delete ssh
+# -----------------------------------------------------------------------------
+echo "▶ Bauzugaenge entfernen"
+sudo systemctl disable --now ssh 2>/dev/null || true
+sudo DEBIAN_FRONTEND=noninteractive apt-get -y purge openssh-server >/dev/null 2>&1 || true
+sudo rm -rf /root/.ssh                       # Schluessel eines Baulaufs als root
+sudo rm -f /etc/sudoers.d/90-bootcamp-bau    # passwortloses sudo aus dem Bau
+echo "  SSH-Server, Schluessel und Bau-sudo entfernt."
 
 cat <<'EOF'
 

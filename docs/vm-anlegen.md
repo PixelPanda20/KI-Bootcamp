@@ -96,10 +96,10 @@ Bei der Softwareauswahl am Schluss:
 
 ```
 [*] Debian desktop environment
-[*] Xfce
+[*] GNOME
 [*] SSH server
 [*] Standard-Systemwerkzeuge
-[ ] GNOME, KDE und alle übrigen abwählen
+[ ] Xfce, KDE und alle übrigen abwählen
 ```
 
 **Das Root-Passwort leer lassen ist keine Nachlässigkeit.** Debian vergibt sudo-Rechte an den
@@ -116,9 +116,10 @@ apt install -y sudo && /sbin/usermod -aG sudo bootcamp
 
 Danach ab- und wieder anmelden.
 
-**Warum XFCE und nicht GNOME:** rund 800 MB weniger Arbeitsspeicher, und es läuft auf X11.
-Damit funktionieren Zwischenablage und automatische Auflösungsanpassung unter jedem
-Hypervisor gleich, statt unter Wayland je nach Hypervisor anders.
+**Warum GNOME:** Er ist die Vorauswahl des Debian-Installers, also ein Schritt weniger, der
+beim Aufbau schiefgehen kann. Der frühere Einwand — XFCE spare rund 800 MB — hält der Messung
+nicht stand: in der fertigen VM belegt GNOME auf Wayland mit laufendem Open WebUI 1,9 GB von
+7,8 GB, und der Start dauert 11 Sekunden.
 
 ---
 
