@@ -1,0 +1,96 @@
+// =============================================================================
+//  KI-Bootcamp — Arbeitsbereichseinstellungen
+//  Liegt unter ~/bootcamp/.vscode/settings.json und gilt nur hier.
+//
+//  Öffnen mit:  code ~/bootcamp
+// =============================================================================
+{
+  // --- Python ---------------------------------------------------------------
+  // Der Interpreter aus der Bootcamp-Umgebung, nicht der des Systems. Ohne
+  // diese Zeile wählt VS Code das System-Python und findet keine einzige der
+  // installierten Bibliotheken.
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+  "python.terminal.activateEnvironment": true,
+
+  // Der API-Schlüssel für Debugsitzungen. Beim Start über den Debugger gibt es
+  // keine Shell, also auch kein .bashrc — ohne diese Zeile läuft jedes Skript
+  // im Debugger ohne Schlüssel ins Leere.
+  "python.envFile": "${env:HOME}/.config/bootcamp/env",
+
+  // Die virtuelle Umgebung enthält zehntausende Dateien. Sie zu analysieren
+  // kostet in einer VM mit 6 GB spürbar Arbeitsspeicher und bringt nichts.
+  "python.analysis.exclude": ["**/.venv/**", "**/node_modules/**"],
+  "python.analysis.diagnosticMode": "openFilesOnly",
+  "python.analysis.typeCheckingMode": "basic",
+
+  // --- Formatierung ---------------------------------------------------------
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.organizeImports.ruff": "explicit"
+    }
+  },
+  "editor.rulers": [88],
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+
+  // --- Leistung in der VM ---------------------------------------------------
+  // Der Dateiwächter ist der grösste unnötige Verbraucher. Er beobachtet sonst
+  // jede Datei in .venv und in Docker-Volumes.
+  "files.watcherExclude": {
+    "**/.venv/**": true,
+    "**/node_modules/**": true,
+    "**/.git/objects/**": true,
+    "**/__pycache__/**": true,
+    "**/swarm-stand/**": true
+  },
+  "search.exclude": {
+    "**/.venv": true,
+    "**/node_modules": true,
+    "**/__pycache__": true
+  },
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/*.pyc": true
+  },
+  "editor.minimap.enabled": false,
+  "editor.smoothScrolling": false,
+  "workbench.list.smoothScrolling": false,
+
+  // --- Ruhe ------------------------------------------------------------------
+  // Keine Telemetrie, keine Aktualisierungshinweise. Das Abbild ist auf einen
+  // Stand festgelegt; Update-Aufforderungen mitten im Kurs sind nur Störung.
+  "telemetry.telemetryLevel": "off",
+  "update.mode": "none",
+  "extensions.autoUpdate": false,
+  "extensions.autoCheckUpdates": false,
+  "workbench.enableExperiments": false,
+  "workbench.startupEditor": "readme",
+  "git.confirmSync": false,
+  "explorer.confirmDragAndDrop": false,
+
+  // --- Terminal --------------------------------------------------------------
+  "terminal.integrated.defaultProfile.linux": "bash",
+  "terminal.integrated.scrollback": 5000,
+
+  // --- Notebooks -------------------------------------------------------------
+  "jupyter.notebookFileRoot": "${workspaceFolder}",
+  "notebook.output.textLineLimit": 60,
+
+  // --- Aussehen --------------------------------------------------------------
+  "workbench.colorTheme": "Default Dark Modern",
+  "editor.fontSize": 13,
+  "editor.wordWrap": "on",
+
+  // --- Docker ----------------------------------------------------------------
+  "docker.containers.groupBy": "Compose Project Name",
+  "docker.containers.sortBy": "CreatedTime",
+
+  // --- YAML: Schema für die Compose-Datei ------------------------------------
+  "yaml.schemas": {
+    "https://raw.githubusercontent.com/compose-spec/compose-spec/master/schema/compose-spec.json": [
+      "docker/docker-compose.yml"
+    ]
+  }
+}

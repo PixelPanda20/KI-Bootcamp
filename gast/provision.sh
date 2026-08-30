@@ -249,6 +249,28 @@ command -v opencode >/dev/null 2>&1 || curl -fsSL https://opencode.ai/install | 
 export PATH="$HEIM/.opencode/bin:$PATH"
 ok "OpenCode $(opencode --version 2>/dev/null || echo '— Version prüfen')"
 
+# Arbeitsbereich einrichten. Ohne diese Dateien wählt VS Code das System-Python
+# statt der Bootcamp-Umgebung und findet keine einzige installierte Bibliothek.
+if [[ -d "$HIER/vscode" ]]; then
+    mkdir -p "$WORK/.vscode"
+    cp "$HIER"/vscode/*.json "$WORK/.vscode/"
+    ok "VS-Code-Arbeitsbereich unter $WORK/.vscode"
+fi
+
+# Grafikbeschleunigung abschalten. VS Code ist eine Electron-Anwendung und
+# rechnet die Oberfläche standardmässig auf der Grafikkarte. In einer VM ohne
+# 3D-Beschleunigung führt das zu Flackern, schwarzen Flächen und gelegentlich
+# einem leeren Fenster. Ohne Beschleunigung ist es unauffällig.
+mkdir -p "$HEIM/.vscode"
+if ! grep -qs disable-hardware-acceleration "$HEIM/.vscode/argv.json"; then
+    printf '%s\n' \
+        '{' \
+        '  "disable-hardware-acceleration": true,' \
+        '  "enable-crash-reporter": false' \
+        '}' > "$HEIM/.vscode/argv.json"
+    ok "Grafikbeschleunigung in VS Code abgeschaltet (VM ohne 3D)"
+fi
+
 # -----------------------------------------------------------------------------
 log "7/11  Zugang zu OpenRouter vorbereiten (ohne Schlüssel)"
 # -----------------------------------------------------------------------------

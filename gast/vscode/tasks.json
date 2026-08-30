@@ -1,0 +1,114 @@
+// =============================================================================
+//  KI-Bootcamp — Aufgaben
+//  Aufruf mit  Strg+Shift+P → "Tasks: Run Task"
+//  oder direkt mit  Strg+Shift+B  für die Standardaufgabe.
+// =============================================================================
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Open WebUI starten",
+      "detail": "Startet den Chat auf http://localhost:3000",
+      "type": "shell",
+      "command": "docker compose up -d && echo && echo 'Bereit: http://localhost:3000'",
+      "options": { "cwd": "${workspaceFolder}/docker" },
+      "group": { "kind": "build", "isDefault": true },
+      "presentation": { "reveal": "always", "panel": "shared", "clear": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "Open WebUI stoppen",
+      "type": "shell",
+      "command": "docker compose down",
+      "options": { "cwd": "${workspaceFolder}/docker" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Protokolle ansehen",
+      "detail": "Laufende Ausgabe aller Dienste",
+      "type": "shell",
+      "command": "docker compose logs -f --tail=50",
+      "options": { "cwd": "${workspaceFolder}/docker" },
+      "presentation": { "reveal": "always", "panel": "dedicated" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Portainer starten",
+      "detail": "Grafische Docker-Verwaltung, admin / bootcamp2026",
+      "type": "shell",
+      "command": "docker compose --profile tools up -d && echo && echo 'Bereit: http://localhost:9000'",
+      "options": { "cwd": "${workspaceFolder}/docker" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Qdrant starten (RAG)",
+      "type": "shell",
+      "command": "docker compose --profile rag up -d",
+      "options": { "cwd": "${workspaceFolder}/docker" },
+      "problemMatcher": []
+    },
+    {
+      "label": "n8n starten (Low-Code)",
+      "type": "shell",
+      "command": "docker compose --profile lcnc up -d && echo && echo 'Bereit: http://localhost:5678'",
+      "options": { "cwd": "${workspaceFolder}/docker" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Alle Dienste stoppen",
+      "detail": "Gibt Arbeitsspeicher frei, wenn es eng wird",
+      "type": "shell",
+      "command": "docker compose --profile tools --profile rag --profile lcnc down",
+      "options": { "cwd": "${workspaceFolder}/docker" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Container im Terminal (lazydocker)",
+      "type": "shell",
+      "command": "lazydocker",
+      "presentation": { "reveal": "always", "panel": "dedicated", "focus": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "Selbsttest",
+      "detail": "Prüft, ob die VM vollständig eingerichtet ist",
+      "type": "shell",
+      "command": "${workspaceFolder}/scripts/selftest.sh",
+      "presentation": { "reveal": "always", "clear": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "Streamlit: aktuelle Datei",
+      "detail": "Startet die offene Datei als Web-App auf Port 8501",
+      "type": "shell",
+      "command": "${workspaceFolder}/.venv/bin/streamlit run '${file}' --server.port 8501 --server.headless true",
+      "presentation": { "reveal": "always", "panel": "dedicated" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Prompt messen (promptfoo)",
+      "detail": "Führt promptfoo im aktuellen Ordner aus",
+      "type": "shell",
+      "command": "promptfoo eval",
+      "options": { "cwd": "${fileDirname}" },
+      "presentation": { "reveal": "always" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Bibliothek nachinstallieren",
+      "detail": "Fragt nach dem Namen und installiert in die Bootcamp-Umgebung",
+      "type": "shell",
+      "command": "uv pip install ${input:paketname}",
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    }
+  ],
+  "inputs": [
+    {
+      "id": "paketname",
+      "type": "promptString",
+      "description": "Welche Bibliothek?",
+      "default": ""
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+// =============================================================================
+//  KI-Bootcamp — empfohlene Erweiterungen
+//  VS Code bietet sie beim Öffnen des Arbeitsbereichs zur Installation an.
+//  Die Provisionierung installiert sie bereits; diese Liste ist die
+//  Absicherung für den Fall, dass etwas fehlt.
+// =============================================================================
+{
+  "recommendations": [
+    "ms-python.python",
+    "ms-python.debugpy",
+    "ms-toolsai.jupyter",
+    "charliermarsh.ruff",
+    "ms-azuretools.vscode-docker",
+    "eamodio.gitlens",
+    "yzhang.markdown-all-in-one",
+    "redhat.vscode-yaml",
+    "Continue.continue"
+  ],
+  "unwantedRecommendations": []
+}

@@ -14,6 +14,7 @@ gast/                       wird von setup.sh in die VM übertragen
   bootcamp-setup            Ersteinrichtung durch den Lernenden (API-Schlüssel)
   prepare-export.sh         VM für die Verteilung aufräumen
   webui-autostart.sh        Open WebUI beim Anmelden starten (an/aus/status)
+  vscode/                   Arbeitsbereichseinstellungen, Aufgaben, Debugger
   desktop/                  Hintergrundbild
   optional/                 wird mitkopiert, aber nicht ausgeführt
 ```
@@ -56,7 +57,7 @@ sudo poweroff
 **Basis** Debian 13 mit XFCE auf X11, Zeitzone Europe/Zurich, Tastatur Schweizerdeutsch,
 Systemsprache Englisch, dunkles Erscheinungsbild
 
-**Werkzeuge** VS Code · OpenCode · Continue · Python 3.12 mit uv · Node.js · Docker mit
+**Werkzeuge** VS Code mit vorbereitetem Arbeitsbereich · OpenCode · Continue · Python 3.12 mit uv · Node.js · Docker mit
 Compose · lazydocker · Git · promptfoo · ripgrep, fzf, jq, tmux, ffmpeg
 
 **Python** OpenAI-SDK gegen OpenRouter · LangChain, LangGraph, smolagents, pydantic-ai · MCP

@@ -1,0 +1,57 @@
+// =============================================================================
+//  KI-Bootcamp — Debug-Konfigurationen
+//  Aufruf mit  F5,  Auswahl oben links im Debug-Bereich.
+//
+//  Alle Konfigurationen laden ~/.config/bootcamp/env. Ohne das läuft jedes
+//  Skript im Debugger ohne API-Schlüssel, und der Fehler sieht aus wie ein
+//  Programmierfehler, obwohl nur eine Umgebungsvariable fehlt.
+// =============================================================================
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Python: aktuelle Datei",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${file}",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "envFile": "${env:HOME}/.config/bootcamp/env",
+      "justMyCode": true
+    },
+    {
+      "name": "Python: aktuelle Datei (auch Bibliotheken durchsteppen)",
+      "detail": "Für den Blick in LangChain, smolagents und Co.",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${file}",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "envFile": "${env:HOME}/.config/bootcamp/env",
+      "justMyCode": false
+    },
+    {
+      "name": "Streamlit: aktuelle Datei",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "streamlit",
+      "args": ["run", "${file}", "--server.port", "8501", "--server.headless", "true"],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "envFile": "${env:HOME}/.config/bootcamp/env",
+      "justMyCode": true
+    },
+    {
+      "name": "FastAPI: aktuelle Datei",
+      "detail": "Erwartet ein Objekt namens app in der offenen Datei",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": ["${fileBasenameNoExtension}:app", "--reload", "--port", "8000"],
+      "console": "integratedTerminal",
+      "cwd": "${fileDirname}",
+      "envFile": "${env:HOME}/.config/bootcamp/env",
+      "justMyCode": true
+    }
+  ]
+}

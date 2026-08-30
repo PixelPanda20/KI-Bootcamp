@@ -63,9 +63,26 @@ Ordnung. Dafür ist eine VM da.
 | `dockergui` | Portainer starten, `localhost:9000`, admin / bootcamp2026 |
 | `lzd` | Container im Terminal ansehen |
 | `opencode` | Coding-Agent im Terminal |
-| `code ~/bootcamp` | VS Code öffnen |
+| `code ~/bootcamp` | VS Code öffnen — Interpreter, Debugger und Aufgaben sind eingerichtet |
 | `~/bootcamp/scripts/selftest.sh` | prüft, ob alles läuft |
 | `bootcamp-setup` | Schlüssel neu eintragen |
+
+---
+
+## VS Code
+
+Öffne immer den ganzen Ordner mit `code ~/bootcamp`, nicht einzelne Dateien. Nur dann kennt
+VS Code die richtige Python-Umgebung und deinen API-Schlüssel.
+
+| Taste | Was passiert |
+|---|---|
+| `Strg` `Shift` `B` | Open WebUI starten |
+| `Strg` `Shift` `P` → *Run Task* | alle übrigen Aufgaben: Portainer, n8n, Selbsttest, Streamlit |
+| `F5` | Aktuelle Datei im Debugger starten, mit geladenem Schlüssel |
+| `Strg` `L` | Continue fragen, das ist die KI im Editor |
+
+Unten links muss `.venv` als Interpreter stehen. Falls nicht: `Strg` `Shift` `P` →
+*Python: Select Interpreter* → den Eintrag mit `.venv` wählen.
 
 ---
 
