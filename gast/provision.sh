@@ -397,16 +397,29 @@ chk "lazydocker"  "command -v lazydocker"
 chk "ffmpeg"      "command -v ffmpeg"         "sudo apt install ffmpeg"
 
 echo "── Docker ──"
+# Zuerst der tatsaechliche Zugriff, erst danach die Diagnose. Docker wird auf
+# Debian ueber einen Socket aktiviert: docker.socket lauscht, docker.service
+# startet beim ersten Zugriff. "systemctl is-active docker" meldet deshalb
+# voellig zu Recht "inactive", solange niemand Docker benutzt hat. Wer den
+# Dienststatus zuerst prueft, meldet einen Fehler, den es nicht gibt.
 if ! command -v docker >/dev/null 2>&1; then
     NEIN "Docker installiert" "Provisionierung erneut laufen lassen"
-elif ! systemctl is-active --quiet docker; then
-    NEIN "Docker-Dienst" "sudo systemctl start docker"
 elif docker info >/dev/null 2>&1; then
     JA "Docker läuft"
-elif id -nG | grep -qw docker; then
-    OFFEN "Docker-Zugriff" "Du bist in der Gruppe docker, aber diese Sitzung weiss es noch nicht. Einmal ab- und wieder anmelden."
 else
-    NEIN "Docker-Zugriff" "sudo usermod -aG docker $USER, dann neu anmelden"
+    MELDUNG="$(docker info 2>&1 >/dev/null | head -3)"
+    case "$MELDUNG" in
+        *[Pp]ermission\ denied*)
+            if id -nG | grep -qw docker; then
+                OFFEN "Docker-Zugriff" "Du bist in der Gruppe docker, aber diese Sitzung weiss es noch nicht. Abmelden und neu anmelden, oder für diese Shell: newgrp docker"
+            else
+                NEIN "Docker-Zugriff" "sudo usermod -aG docker $(id -un), danach neu anmelden"
+            fi ;;
+        *[Cc]annot\ connect*|*daemon\ running*|*docker.sock*)
+            NEIN "Docker-Dienst" "sudo systemctl enable --now docker.service — Ursache zeigt: journalctl -u docker -n 30" ;;
+        *)
+            NEIN "Docker" "${MELDUNG:-unbekannter Fehler}" ;;
+    esac
 fi
 
 echo "── Python-Umgebung ──"
