@@ -116,13 +116,17 @@ log "3/11  Docker"
 # in Dockers eigener Anleitung.
 paket_da() { dpkg-query -W -f='${Status}' "$1" 2>/dev/null | grep -q 'ok installed'; }
 
-for alt_paket in docker.io docker-doc docker-compose docker-compose-v2 \
+# docker-cli gehört ausdrücklich dazu: Debian hat docker.io in Client und
+# Dienst aufgeteilt. Ist nur docker-cli installiert, findet "command -v docker"
+# etwas, obwohl es gar keinen Daemon gibt — genau dieser Fall ist in einer
+# Testinstallation aufgetreten.
+for alt_paket in docker.io docker-cli docker-doc docker-compose docker-compose-v2 \
                  podman-docker containerd runc; do
     if paket_da "$alt_paket"; then
         warn "Debian-Paket $alt_paket gefunden — wird durch Docker CE ersetzt"
         sudo systemctl stop docker docker.socket containerd 2>/dev/null || true
         sudo DEBIAN_FRONTEND=noninteractive apt-get purge -y \
-            docker.io docker-doc docker-compose docker-compose-v2 \
+            docker.io docker-cli docker-doc docker-compose docker-compose-v2 \
             podman-docker containerd runc 2>/dev/null || true
         sudo apt-get autoremove -y
         break
@@ -143,6 +147,9 @@ https://download.docker.com/linux/debian $CODENAME stable" |
 fi
 
 sudo usermod -aG docker "$BENUTZER"
+# Gruppe adm: erlaubt das Lesen der Systemprotokolle ohne sudo. In einem Kurs,
+# in dem Container debuggt werden, ist "journalctl -u docker" ein Grundwerkzeug.
+sudo usermod -aG adm "$BENUTZER"
 sudo systemctl enable --now docker.service
 
 # Nicht bloss enablen, sondern nachsehen, ob es auch läuft. Ein Daemon, der
@@ -459,7 +466,12 @@ else
                 NEIN "Docker-Zugriff" "sudo usermod -aG docker $(id -un), danach neu anmelden"
             fi ;;
         *[Cc]annot\ connect*|*daemon\ running*|*docker.sock*)
-            NEIN "Docker-Dienst" "sudo systemctl enable --now docker.service — Ursache zeigt: journalctl -u docker -n 30" ;;
+            if systemctl list-unit-files docker.service >/dev/null 2>&1 \
+               && systemctl cat docker.service >/dev/null 2>&1; then
+                NEIN "Docker-Dienst" "Läuft nicht. Starten: sudo systemctl enable --now docker.service — Ursache: sudo journalctl -u docker -n 30"
+            else
+                NEIN "Docker-Daemon" "Es gibt gar keinen docker.service. Vermutlich ist nur Debians docker-cli installiert, nicht Docker CE. Provisionierung erneut laufen lassen, sie räumt das auf."
+            fi ;;
         *)
             NEIN "Docker" "${MELDUNG:-unbekannter Fehler}" ;;
     esac
