@@ -34,7 +34,7 @@ cat >~/.config/autostart/bootcamp-setup.desktop <<'EOF'
 [Desktop Entry]
 Type=Application
 Name=KI-Bootcamp Ersteinrichtung
-Exec=sh -c 'sleep 5; xfce4-terminal --title="KI-Bootcamp Ersteinrichtung" -e bootcamp-setup'
+Exec=sh -c 'sleep 5; x-terminal-emulator -e bootcamp-setup'
 Terminal=false
 X-GNOME-Autostart-enabled=true
 EOF
