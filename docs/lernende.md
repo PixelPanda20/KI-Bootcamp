@@ -41,6 +41,11 @@ Anmeldung: `bootcamp` / `bootcamp`
 Die Ersteinrichtung öffnet sich von selbst und fragt nach deinem persönlichen
 OpenRouter-Schlüssel. Den bekommst du am ersten Kurstag.
 
+**Open WebUI startet ab dann bei jeder Anmeldung automatisch** und ist unter
+`http://localhost:3000` erreichbar. Beim ersten Mal dauert es eine halbe Minute, bis es
+antwortet. Wer den Arbeitsspeicher lieber frei hätte:
+`~/bootcamp/scripts/webui-autostart.sh aus`.
+
 Danach **sofort einen Sicherungspunkt anlegen**: *VM → Snapshot → Snapshot aufnehmen*, Name
 `Startzustand`.
 
@@ -54,7 +59,7 @@ Ordnung. Dafür ist eine VM da.
 | Befehl | Was passiert |
 |---|---|
 | `bc` | Python-Umgebung aktivieren, ins Arbeitsverzeichnis wechseln |
-| `webui` | Open WebUI starten, Browser öffnet `localhost:3000` |
+| `webui` | Open WebUI von Hand starten (läuft normalerweise schon) |
 | `dockergui` | Portainer starten, `localhost:9000`, admin / bootcamp2026 |
 | `lzd` | Container im Terminal ansehen |
 | `opencode` | Coding-Agent im Terminal |
@@ -89,6 +94,7 @@ nützlich. Der Schlüssel wird nach dem Kurs deaktiviert.
 | Kein Copy-Paste zum Host | In den VM-Einstellungen die Zwischenablage auf bidirektional |
 | `docker: permission denied` | Einmal ab- und wieder anmelden |
 | Open WebUI zeigt keine Modelle | Schlüssel prüfen: `bootcamp-setup` |
+| Open WebUI antwortet nicht | `~/bootcamp/scripts/webui-autostart.sh status` |
 | Kein Internet im BIT-Netz | `~/bootcamp/scripts/proxy-setup.sh http://proxy:port` |
 | Alles kaputt | Sicherungspunkt `Startzustand` wiederherstellen |
 

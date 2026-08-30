@@ -13,6 +13,7 @@ gast/                       wird von setup.sh in die VM übertragen
   models.env                Modell-Allowlist
   bootcamp-setup            Ersteinrichtung durch den Lernenden (API-Schlüssel)
   prepare-export.sh         VM für die Verteilung aufräumen
+  webui-autostart.sh        Open WebUI beim Anmelden starten (an/aus/status)
   desktop/                  Hintergrundbild
   optional/                 wird mitkopiert, aber nicht ausgeführt
 ```
@@ -62,8 +63,16 @@ Compose · lazydocker · Git · promptfoo · ripgrep, fzf, jq, tmux, ffmpeg
 und FastMCP · ChromaDB mit ONNX-Embeddings · faster-whisper · Streamlit, Gradio, FastAPI ·
 pandas, matplotlib, JupyterLab · deepeval
 
-**Dienste** Open WebUI auf 3000, vorkonfiguriert gegen OpenRouter. Optional Portainer
-(`--profile tools`), Qdrant (`--profile rag`), n8n (`--profile lcnc`).
+**Dienste** Open WebUI auf 3000, vorkonfiguriert gegen OpenRouter, startet bei jeder
+Anmeldung automatisch. Optional Portainer (`--profile tools`), Qdrant (`--profile rag`),
+n8n (`--profile lcnc`).
+
+Der Autostart läuft über eine systemd-Benutzereinheit, nicht über `restart: unless-stopped`
+in der Compose-Datei. Letzteres startet einen Container zwar nach einem Neustart wieder, aber
+nur wenn er vorher schon einmal angelegt wurde — bei einer frisch verteilten VM existiert er
+noch gar nicht. Benutzereinheit statt Systemeinheit, weil Open WebUI nur gebraucht wird, wenn
+jemand an der VM arbeitet. Aus- und wieder einschalten mit
+`~/bootcamp/scripts/webui-autostart.sh aus` beziehungsweise `an`.
 
 **Architekturen** amd64 und arm64. `provision.sh` erkennt Architektur und Hypervisor selbst.
 

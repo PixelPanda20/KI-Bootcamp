@@ -284,6 +284,18 @@ docker pull portainer/portainer-ce:lts >/dev/null 2>&1 \
     && ok "Portainer (docker compose --profile tools up -d)" \
     || warn "Portainer-Image nicht vorgezogen"
 
+# Open WebUI bei jeder Anmeldung starten. Als systemd-Benutzereinheit, damit
+# der Dienst nur läuft, wenn auch jemand an der VM arbeitet.
+install -m 755 "$HIER/webui-autostart.sh" "$WORK/scripts/webui-autostart.sh" 2>/dev/null || true
+if "$WORK/scripts/webui-autostart.sh" an >/dev/null 2>&1; then
+    ok "Open WebUI startet künftig automatisch bei der Anmeldung"
+else
+    # Beim Lauf über SSH fehlt oft die Benutzer-Sitzung von systemd. Die
+    # Einheit ist dann geschrieben, greift aber erst nach der nächsten
+    # grafischen Anmeldung.
+    warn "Autostart vorbereitet, wird bei der nächsten Anmeldung aktiv"
+fi
+
 # Bewusst KEIN Ollama. Auf vier CPU-Kernen ohne Grafikbeschleunigung wäre nur
 # ein Kleinstmodell lauffähig, und dessen Qualität steht in keinem Verhältnis
 # zu dem, was eine ernsthafte On-Premise-Installation leistet. Die Lernenden
@@ -412,7 +424,7 @@ echo "Proxy gesetzt. Neue Shell oeffnen."
 EOF
 chmod +x "$WORK/scripts/proxy-setup.sh"
 
-cp "$HIER/prepare-export.sh" "$WORK/scripts/" 2>/dev/null || true
+cp "$HIER/prepare-export.sh" "$HIER/webui-autostart.sh" "$WORK/scripts/" 2>/dev/null || true
 [[ -d "$HIER/optional" ]] && cp -a "$HIER/optional/." "$WORK/scripts/"
 chmod +x "$WORK"/scripts/*.sh 2>/dev/null || true
 ok "Hilfsskripte unter $WORK/scripts/"

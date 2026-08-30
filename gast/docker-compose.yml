@@ -26,11 +26,13 @@ services:
     ports:
       - "127.0.0.1:3000:8080"
     env_file:
+      # Liefert OPENAI_API_KEY und OPENROUTER_API_KEY direkt in den Container.
+      # Bewusst keine ${...}-Ersetzung an dieser Stelle: die zieht Compose aus
+      # der Shell, und beim automatischen Start über systemd gibt es keine.
       - ${HOME}/.config/bootcamp/env
     environment:
       # OpenRouter spricht das OpenAI-Protokoll
       OPENAI_API_BASE_URL: "https://openrouter.ai/api/v1"
-      OPENAI_API_KEY: "${OPENROUTER_API_KEY}"
 
       WEBUI_NAME: "BIT KI-Bootcamp"
       WEBUI_AUTH: "True"

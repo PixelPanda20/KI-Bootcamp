@@ -91,19 +91,30 @@ rm -f "$AUTOSTART"
 
 gruen "\nGespeichert unter $ENVFILE (nur für dich lesbar)."
 
+# Open WebUI neu anlegen, damit der frische Schlüssel im Container landet.
+# Ein blosser Neustart genügt nicht: Umgebungsvariablen werden beim Anlegen
+# des Containers gesetzt, nicht bei jedem Start.
+if systemctl --user is-active ki-bootcamp-webui.service >/dev/null 2>&1; then
+    blau "Open WebUI wird mit dem neuen Schlüssel neu gestartet …"
+    systemctl --user restart ki-bootcamp-webui.service >/dev/null 2>&1 || true
+elif [ -d "$HOME/bootcamp/docker" ]; then
+    ( cd "$HOME/bootcamp/docker" && docker compose up -d --force-recreate >/dev/null 2>&1 ) || true
+fi
+
 cat <<'ENDE'
 
 ╔══════════════════════════════════════════════════════════════╗
 ║   Fertig. Öffne ein neues Terminal, dann:                    ║
 ║                                                              ║
 ║     bc                      Python-Umgebung aktivieren       ║
-║     webui                   Open WebUI starten (Port 3000)   ║
+║     Open WebUI läuft bereits auf http://localhost:3000       ║
+║     webui                   von Hand starten, falls nicht    ║
 ║     opencode                Coding-Agent im Terminal         ║
 ║     code ~/bootcamp         VS Code öffnen                   ║
 ║     ~/bootcamp/scripts/selftest.sh    alles prüfen           ║
 ║                                                              ║
-║   Jetzt in VirtualBox einen Snapshot anlegen:                ║
-║   Machine → Take Snapshot → "Startzustand"                   ║
+║   Jetzt einen Sicherungspunkt anlegen:                       ║
+║   VM → Snapshot → Snapshot aufnehmen → "Startzustand"        ║
 ╚══════════════════════════════════════════════════════════════╝
 ENDE
 
