@@ -82,6 +82,52 @@ sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
     apt-transport-https
 ok "Basispakete"
 
+# --- Verschlanken ------------------------------------------------------------
+# Die Debian-Desktopaufgabe bringt ein vollständiges Büropaket, Druck- und
+# Scanunterstützung, Bluetooth und einen Mailserver mit. In einer VM, die drei
+# Tage lang Container und Python ausführt, ist davon nichts nötig. Das kostet
+# grob 1 bis 1,5 GB im Abbild und mehrere Dienste, die bei jedem Start mitlaufen.
+#
+# Gemessen wird nachher mit:  df -h /
+log "1b/11  Nicht benötigte Software entfernen"
+BALLAST=(
+    # Büropaket
+    "libreoffice*" "libreoffice-core" "libreoffice-common"
+    # Drucken und Scannen — eine VM druckt nicht
+    "cups" "cups-daemon" "cups-browsed" "cups-filters" "printer-driver-*"
+    "hplip" "hplip-data" "simple-scan" "xsane" "sane-utils"
+    # Bluetooth, Mobilfunk, WLAN-Werkzeuge — im Gast nicht vorhanden
+    "bluez" "blueman" "modemmanager"
+    # Mailserver, Netzwerkbekanntgabe
+    "exim4" "exim4-base" "exim4-config" "exim4-daemon-light" "avahi-daemon"
+    # Zubehör, das im Kurs nie gebraucht wird
+    "xfburn" "parole" "thunderbird" "gnome-games" "aisleriot"
+    "plocate" "mlocate"
+)
+ENTFERNEN=()
+for pkt in "${BALLAST[@]}"; do
+    # shellcheck disable=SC2086
+    if dpkg-query -W -f='${Package}\n' $pkt 2>/dev/null | grep -q .; then
+        ENTFERNEN+=("$pkt")
+    fi
+done
+if [[ ${#ENTFERNEN[@]} -gt 0 ]]; then
+    sudo DEBIAN_FRONTEND=noninteractive apt-get purge -y "${ENTFERNEN[@]}" 2>/dev/null || true
+    sudo apt-get autoremove --purge -y
+    ok "Entfernt: ${#ENTFERNEN[@]} Paketgruppen"
+else
+    ok "Kein Ballast gefunden"
+fi
+
+# Übersetzungen und Handbücher fremder Sprachen. Die VM läuft auf Englisch.
+sudo tee /etc/dpkg/dpkg.cfg.d/01-keine-doku >/dev/null <<'EOF'
+path-exclude /usr/share/doc/*
+path-exclude /usr/share/man/??/*
+path-exclude /usr/share/man/??_*/*
+path-include /usr/share/man/man?/*
+EOF
+ok "Künftige Pakete ohne fremdsprachige Doku"
+
 mkdir -p "$WORK"/{projekte,uebungen,daten,scripts,docker}
 
 # -----------------------------------------------------------------------------
@@ -150,7 +196,21 @@ sudo usermod -aG docker "$BENUTZER"
 # Gruppe adm: erlaubt das Lesen der Systemprotokolle ohne sudo. In einem Kurs,
 # in dem Container debuggt werden, ist "journalctl -u docker" ein Grundwerkzeug.
 sudo usermod -aG adm "$BENUTZER"
+
+# Containerprotokolle begrenzen. Ohne Obergrenze wächst die JSON-Datei eines
+# schwatzhaften Containers unbegrenzt. Bei einem Agenten, der drei Tage lang
+# Fehler protokolliert, füllt das die 60-GB-Platte schneller als gedacht.
+sudo mkdir -p /etc/docker
+sudo tee /etc/docker/daemon.json >/dev/null <<'EOF'
+{
+  "log-driver": "local",
+  "log-opts": { "max-size": "10m", "max-file": "3" },
+  "live-restore": true
+}
+EOF
+
 sudo systemctl enable --now docker.service
+sudo systemctl restart docker.service 2>/dev/null || true
 
 # Nicht bloss enablen, sondern nachsehen, ob es auch läuft. Ein Daemon, der
 # beim Start scheitert, bleibt sonst bis zum Selbsttest unbemerkt.
@@ -370,7 +430,7 @@ fi
 # Spart zudem rund 2 bis 3 GB im Abbild und 1,5 GB Arbeitsspeicher im Betrieb.
 
 # -----------------------------------------------------------------------------
-log "9/11  Desktop"
+log "9/11  Desktop und Feinschliff"
 # -----------------------------------------------------------------------------
 if [[ -f "$HIER/desktop/wallpaper.jpg" ]]; then
     sudo install -Dm644 "$HIER/desktop/wallpaper.jpg" /usr/share/backgrounds/ki-bootcamp.jpg
@@ -428,6 +488,76 @@ Terminal=false
 X-GNOME-Autostart-enabled=true
 EOF
 ok "Ersteinrichtung eingerichtet"
+
+# --- Arbeitsspeicher: komprimierte Auslagerung -------------------------------
+# Der wirksamste Einzeleingriff bei 6 GB. zram legt den Auslagerungsbereich
+# komprimiert im Arbeitsspeicher an statt auf der Platte. Wenn Docker, VS Code
+# und Firefox gleichzeitig Spitzen erzeugen, federt das ab, statt die VM ins
+# Plattenschlurfen zu schicken. Komprimierungsfaktor bei Textdaten grob 3:1,
+# aus 3 GB zram werden also ungefähr 1 GB tatsächlich belegter Speicher.
+sudo apt-get install -y zram-tools >/dev/null 2>&1 || true
+if [[ -f /etc/default/zramswap ]]; then
+    sudo sed -i 's/^#*ALGO=.*/ALGO=zstd/; s/^#*PERCENT=.*/PERCENT=50/' /etc/default/zramswap
+    sudo systemctl enable --now zramswap.service 2>/dev/null || true
+    ok "zram aktiv (zstd, 50 % des Arbeitsspeichers)"
+fi
+
+# Mit zram im Rücken ist häufiges Auslagern erwünscht, nicht schädlich — der
+# Standardwert 60 stammt aus der Zeit rotierender Platten.
+sudo tee /etc/sysctl.d/99-ki-bootcamp.conf >/dev/null <<'EOF'
+vm.swappiness = 150
+vm.vfs_cache_pressure = 50
+vm.page-cluster = 0
+EOF
+sudo sysctl --system >/dev/null 2>&1 || true
+
+# --- Dienste, die im Kurs nur stören -----------------------------------------
+# NetworkManager-wait-online verzögert den Start um bis zu 30 Sekunden, ohne
+# dass jemand darauf wartet. Die apt-Zeitgeber greifen sich mitten in einer
+# Übung die Paketsperre, und der Lernende sieht nur "could not get lock".
+# man-db baut nach jeder Paketinstallation minutenlang seinen Index neu.
+for dienst in NetworkManager-wait-online.service \
+              apt-daily.timer apt-daily-upgrade.timer \
+              man-db.timer plocate-updatedb.timer \
+              cups.service cups.socket avahi-daemon.service \
+              bluetooth.service ModemManager.service; do
+    sudo systemctl disable --now "$dienst" 2>/dev/null || true
+done
+# fstrim bleibt bewusst aktiv: es gibt freigewordene Blöcke an den Hypervisor
+# zurück und hält die Abbilddatei klein.
+sudo systemctl enable fstrim.timer 2>/dev/null || true
+ok "Nicht benötigte Dienste abgeschaltet"
+
+# --- Systemprotokoll begrenzen -----------------------------------------------
+sudo mkdir -p /etc/systemd/journald.conf.d
+sudo tee /etc/systemd/journald.conf.d/99-groesse.conf >/dev/null <<'EOF'
+[Journal]
+SystemMaxUse=100M
+SystemMaxFileSize=20M
+EOF
+sudo systemctl restart systemd-journald 2>/dev/null || true
+
+# --- Firefox: Telemetrie aus, kein Erstlauf-Getue ----------------------------
+for FFDIR in /etc/firefox-esr /etc/firefox /usr/lib/firefox-esr/distribution; do
+    if [[ -d "$(dirname "$FFDIR")" ]]; then
+        sudo mkdir -p "$FFDIR/policies" 2>/dev/null || continue
+        sudo tee "$FFDIR/policies/policies.json" >/dev/null <<'EOF'
+{
+  "policies": {
+    "DisableTelemetry": true,
+    "DisableFirefoxStudies": true,
+    "DisablePocket": true,
+    "DisableFirefoxAccounts": true,
+    "DontCheckDefaultBrowser": true,
+    "OverrideFirstRunPage": "",
+    "OverridePostUpdatePage": "",
+    "Homepage": { "URL": "http://localhost:3000", "StartPage": "homepage" }
+  }
+}
+EOF
+    fi
+done
+ok "Firefox ohne Telemetrie, Startseite auf Open WebUI"
 
 # -----------------------------------------------------------------------------
 log "10/11  Hilfsskripte"
@@ -533,6 +663,12 @@ if curl -sf -o /dev/null http://localhost:3000; then
 else
     OFFEN "Open WebUI" "Läuft noch nicht. Starten mit: webui"
 fi
+
+echo "── Ressourcen ──"
+printf '  Arbeitsspeicher: %s\n' "$(free -h | awk '/^Mem:/{print $3" von "$2" belegt"}')"
+printf '  Auslagerung:     %s\n' "$(free -h | awk '/^Swap:/{print $3" von "$2}')"
+printf '  Festplatte:      %s\n' "$(df -h / | awk 'NR==2{print $3" von "$2", "$4" frei"}')"
+[ -e /sys/block/zram0 ] && printf '  zram:            aktiv\n' || printf '  zram:            nicht aktiv\n'
 
 echo
 printf '  %d in Ordnung, %d offen, %d Fehler\n' "$ok" "$offen" "$fehler"

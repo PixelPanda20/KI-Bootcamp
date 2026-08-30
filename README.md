@@ -124,6 +124,43 @@ Spielzeugmodell im Notebook.
 
 ---
 
+## Optimierung für den Kursbetrieb
+
+Die VM ist kein Arbeitsplatzrechner. Alles, was nicht dem Kurs dient, ist entfernt oder
+abgeschaltet.
+
+**Entfernt:** LibreOffice, Druck- und Scanunterstützung (cups, hplip, simple-scan, xsane),
+Bluetooth, ModemManager, der Mailserver exim4, avahi, xfburn, parole, Thunderbird, Spiele
+und die Dateiindizierung. Zusammen grob 1 bis 1,5 GB und ein halbes Dutzend Dienste, die
+sonst bei jedem Start mitlaufen. Künftig installierte Pakete kommen ohne fremdsprachige
+Handbücher und ohne `/usr/share/doc`.
+
+**Abgeschaltet:** `NetworkManager-wait-online` verzögert den Start sonst um bis zu dreissig
+Sekunden. Die apt-Zeitgeber greifen sich mitten in einer Übung die Paketsperre, und der
+Lernende sieht nur "could not get lock". `man-db` baut nach jeder Paketinstallation
+minutenlang seinen Index neu. `fstrim.timer` bleibt bewusst aktiv, weil es freigewordene
+Blöcke an den Hypervisor zurückgibt und die Abbilddatei klein hält.
+
+**zram statt Plattenauslagerung.** Der wirksamste Einzeleingriff bei 6 GB: Der
+Auslagerungsbereich liegt komprimiert im Arbeitsspeicher (zstd, 50 Prozent). Bei Textdaten
+komprimiert das grob im Verhältnis 3:1. Wenn Docker, VS Code und Firefox gleichzeitig
+Spitzen erzeugen, federt das ab, statt die VM ins Plattenschlurfen zu schicken. Dazu
+`vm.swappiness=150`, weil häufiges Auslagern mit zram erwünscht ist — der Standardwert 60
+stammt aus der Zeit rotierender Platten.
+
+**Begrenzte Protokolle.** Containerprotokolle auf 10 MB in drei Dateien, das Systemjournal
+auf 100 MB. Ein schwatzhafter Agent, der drei Tage lang Fehler schreibt, füllt sonst die
+Platte.
+
+**VS Code** schliesst `.venv` von Dateiwächter, Suche und Analyse aus und rechnet die
+Oberfläche ohne Grafikbeschleunigung. Beides ist in einer VM spürbar.
+
+**Firefox** ohne Telemetrie, ohne Pocket, ohne Erstlaufseite, mit Open WebUI als Startseite.
+
+Der Selbsttest zeigt am Ende Arbeitsspeicher, Auslagerung, Plattenbelegung und ob zram läuft.
+
+---
+
 ## Schlüssel und Governance
 
 **Kein API-Schlüssel im Abbild.** Er wäre in dreissig Kopien unwiderruflich verteilt.

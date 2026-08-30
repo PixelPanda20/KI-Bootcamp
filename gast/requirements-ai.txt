@@ -80,8 +80,11 @@ pyyaml>=6.0
 ruff>=0.8
 pytest>=8.3
 
-# --- Messen statt hoffen (BIT-Tage 4-6) ---
-# Ein KI-System zu bauen ist einfach. Zu belegen, dass es funktioniert, ist
-# die eigentliche Ingenieurleistung — und der rote Faden der BIT-Tage.
-deepeval>=2.0                 # Bewertung von Antworten gegen ein Goldset
+# --- Messen statt hoffen -----------------------------------------------------
+# Ein KI-System zu bauen ist einfach. Zu belegen, dass es funktioniert, ist die
+# eigentliche Ingenieurleistung.
+#
+# Die Bewertung übernimmt promptfoo (über npm installiert). Ein zweites
+# Python-Bewertungspaket wäre doppelt und zieht je nach Ausgabe PyTorch nach —
+# und PyTorch ist genau das, was hier bewusst draussen bleibt.
 jsonschema>=4.23              # Ausgaben validieren statt vertrauen
