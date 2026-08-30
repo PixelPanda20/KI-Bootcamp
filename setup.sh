@@ -5,7 +5,6 @@
 #      ./setup.sh 192.168.1.42                  Benutzer bootcamp wird angenommen
 #      ./setup.sh bootcamp@192.168.1.42
 #      ./setup.sh -p 2222 bootcamp@127.0.0.1    VirtualBox mit Portweiterleitung
-#      PROFIL=sparsam ./setup.sh 192.168.1.42   Host mit 8 GB, ohne Ollama
 #
 #  Voraussetzung: In der VM läuft Debian 13 mit XFCE und aktivem SSH-Server.
 #  Die Adresse liefert in der VM:  hostname -I
@@ -47,8 +46,7 @@ tar czf - -C "$HIER" gast | "${SSH[@]}" "$ZIEL" \
 
 echo "▶ Provisionierung starten"
 echo
-"${SSH[@]}" -t "$ZIEL" \
-    "cd ~/gast && chmod +x provision.sh && PROFIL='${PROFIL:-standard}' ./provision.sh 2>&1 | tee ~/provision.log"
+"${SSH[@]}" -t "$ZIEL" 'cd ~/gast && chmod +x provision.sh && ./provision.sh 2>&1 | tee ~/provision.log'
 
 cat <<EOF
 

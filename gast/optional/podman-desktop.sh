@@ -7,9 +7,9 @@
 #  BEWUSST NICHT TEIL DER STANDARD-PROVISIONIERUNG.
 #
 #  Podman Desktop ist eine Electron-Anwendung und belegt im Betrieb 400 bis
-#  500 MB. In einer VM mit 6 GB, in der GNOME, VS Code, Firefox, Open WebUI und
-#  zeitweise Ollama liegen, ist das viel für eine Oberfläche. Portainer kostet
-#  100 MB, die Docker-Erweiterung in VS Code gar nichts.
+#  500 MB. In einer VM mit 6 GB, in der XFCE, VS Code, Firefox und Open WebUI
+#  liegen, ist das viel für eine Oberfläche. Portainer kostet 100 MB, die
+#  Docker-Erweiterung in VS Code gar nichts.
 #
 #  Wer die native Anwendung trotzdem will, ist hier richtig. Auf einer VM mit
 #  8 GM oder mehr ist es unproblematisch.

@@ -23,9 +23,6 @@ CODENAME="$(. /etc/os-release && echo "${VERSION_CODENAME:-trixie}")"
 NODE_MAJOR=22
 PYTHON_VERSION=3.12          # bewusst nicht die Systemversion, siehe Abschnitt 4
 
-# Profil: standard | sparsam   (sparsam = Host mit 8 GB, kein Ollama)
-PROFIL="${PROFIL:-standard}"
-
 log()  { printf '\n\033[1;34m▶ %s\033[0m\n' "$*"; }
 ok()   { printf '  \033[0;32m✓\033[0m %s\n' "$*"; }
 warn() { printf '  \033[0;33m!\033[0m %s\n' "$*"; }
@@ -287,17 +284,11 @@ docker pull portainer/portainer-ce:lts >/dev/null 2>&1 \
     && ok "Portainer (docker compose --profile tools up -d)" \
     || warn "Portainer-Image nicht vorgezogen"
 
-if [[ "$PROFIL" == "standard" ]]; then
-    command -v ollama >/dev/null 2>&1 || curl -fsSL https://ollama.com/install.sh | sh
-    sudo systemctl enable --now ollama 2>/dev/null || true
-    sleep 5
-    # Bewusst klein. Auf vier Kernen ohne GPU ist alles Grössere eine
-    # Geduldsprobe, und gemeint ist der Vergleich, nicht die Leistung.
-    ollama pull qwen3:1.7b || warn "Modell-Pull fehlgeschlagen, später nachholen"
-    ok "Ollama mit Kleinmodell"
-else
-    warn "Profil 'sparsam': Ollama übersprungen"
-fi
+# Bewusst KEIN Ollama. Auf vier CPU-Kernen ohne Grafikbeschleunigung wäre nur
+# ein Kleinstmodell lauffähig, und dessen Qualität steht in keinem Verhältnis
+# zu dem, was eine ernsthafte On-Premise-Installation leistet. Die Lernenden
+# würden daraus den falschen Schluss ziehen, lokale Modelle seien unbrauchbar.
+# Spart zudem rund 2 bis 3 GB im Abbild und 1,5 GB Arbeitsspeicher im Betrieb.
 
 # -----------------------------------------------------------------------------
 log "9/11  Desktop"

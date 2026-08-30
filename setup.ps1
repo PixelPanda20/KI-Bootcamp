@@ -4,15 +4,13 @@
 #      .\setup.ps1 192.168.1.42
 #      .\setup.ps1 bootcamp@192.168.1.42
 #      .\setup.ps1 -Ziel 127.0.0.1 -Port 2222        VirtualBox mit Weiterleitung
-#      .\setup.ps1 192.168.1.42 -Profil sparsam      Host mit 8 GB
 #
 #  Der OpenSSH-Client und tar sind in Windows 10 und 11 enthalten.
 #  Kein PuTTY, kein WSL nötig.
 # =============================================================================
 param(
     [Parameter(Mandatory = $true, Position = 0)][string]$Ziel,
-    [int]$Port = 22,
-    [ValidateSet("standard", "sparsam")][string]$Profil = "standard"
+    [int]$Port = 22
 )
 
 $ErrorActionPreference = "Stop"
@@ -35,7 +33,7 @@ if ($LASTEXITCODE -ne 0) { throw "Uebertragung fehlgeschlagen" }
 
 Write-Host "> Provisionierung starten"
 Write-Host ""
-& ssh @opts -t $Ziel "cd ~/gast && chmod +x provision.sh && PROFIL='$Profil' ./provision.sh 2>&1 | tee ~/provision.log"
+& ssh @opts -t $Ziel "cd ~/gast && chmod +x provision.sh && ./provision.sh 2>&1 | tee ~/provision.log"
 
 Write-Host ""
 Write-Host "============================================================"

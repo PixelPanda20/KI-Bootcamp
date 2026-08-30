@@ -63,14 +63,13 @@ und FastMCP · ChromaDB mit ONNX-Embeddings · faster-whisper · Streamlit, Grad
 pandas, matplotlib, JupyterLab · deepeval
 
 **Dienste** Open WebUI auf 3000, vorkonfiguriert gegen OpenRouter. Optional Portainer
-(`--profile tools`), Qdrant (`--profile rag`), n8n (`--profile lcnc`). Ollama mit einem
-Kleinmodell im Standardprofil.
+(`--profile tools`), Qdrant (`--profile rag`), n8n (`--profile lcnc`).
 
 **Architekturen** amd64 und arm64. `provision.sh` erkennt Architektur und Hypervisor selbst.
 
 ---
 
-## Sechs Entscheide, die vom Naheliegenden abweichen
+## Sieben Entscheide, die vom Naheliegenden abweichen
 
 **Debian statt Ubuntu.** Debian 13 ist seit über einem Jahr gesetzt, während die aktuelle
 Ubuntu-LTS erst wenige Wochen alt ist. Für einen einmaligen Anlass mit dreissig Personen ist
@@ -79,8 +78,8 @@ wählbar, es gibt kein Snap, die Kernwerkzeuge sind die vertrauten GNU-coreutils
 Rust-Neufassung, und für ARM existieren offizielle Installationsabbilder.
 
 **XFCE statt GNOME.** Rund 800 MB weniger Arbeitsspeicher, und es läuft auf X11. In einer VM
-mit 6 GB, in der Docker, Ollama, VS Code und ein Agenten-Verbund gleichzeitig laufen, ist das
-der Abstand zwischen komfortabel und Auslagerungsdatei. X11 sorgt zudem dafür, dass sich die
+mit 6 GB, in der Docker, VS Code und ein Agenten-Verbund gleichzeitig laufen, ist das der
+Abstand zwischen komfortabel und Auslagerungsdatei. X11 sorgt zudem dafür, dass sich die
 VM unter jedem Hypervisor gleich verhält, statt unter Wayland je nach Hypervisor anders.
 
 **VMware statt VirtualBox.** VMware läuft neben aktiver virtualisierungsbasierter Sicherheit.
@@ -101,6 +100,17 @@ regelmässig Monate hinterher. uv lädt die passende Version selbst, das kostet 
 
 **Kein PyTorch.** ChromaDB bringt ONNX-Embeddings mit, faster-whisper nutzt CTranslate2.
 Beides läuft auf der CPU schnell genug und spart zusammen rund 3 GB im Abbild.
+
+**Keine lokalen Sprachmodelle.** Kein Ollama, kein llama.cpp. Auf vier CPU-Kernen ohne
+Grafikbeschleunigung wäre nur ein Kleinstmodell lauffähig, dessen Qualität in keinem
+Verhältnis zu einer ernsthaften On-Premise-Installation steht. Lernende würden daraus den
+falschen Schluss ziehen, lokale Modelle taugten nichts, und diese Fehleinschätzung ins BIT
+tragen, wo gerade über souveräne KI-Infrastruktur nachgedacht wird. Spart nebenbei 2 bis 3 GB
+im Abbild und 1,5 GB Arbeitsspeicher im Betrieb.
+
+Wenn der Vergleich zwischen fremder und eigener Infrastruktur im Kurs vorkommen soll, gehört
+er über einen zweiten API-Schlüssel bei einem Schweizer Anbieter abgebildet, nicht über ein
+Spielzeugmodell im Notebook.
 
 ---
 

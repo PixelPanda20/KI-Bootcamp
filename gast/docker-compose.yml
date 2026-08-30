@@ -43,7 +43,10 @@ services:
       DO_NOT_TRACK: "true"
       SCARF_NO_ANALYTICS: "true"
 
-      OLLAMA_BASE_URL: "http://host.docker.internal:11434"
+      # Kein Ollama in dieser VM, siehe README. host.docker.internal bleibt,
+      # damit Open WebUI eine API erreichen kann, die ein Lernender selbst
+      # in der VM startet.
+      ENABLE_OLLAMA_API: "False"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:

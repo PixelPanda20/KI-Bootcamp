@@ -59,7 +59,6 @@ Ordnung. Dafür ist eine VM da.
 | `lzd` | Container im Terminal ansehen |
 | `opencode` | Coding-Agent im Terminal |
 | `code ~/bootcamp` | VS Code öffnen |
-| `ollama run qwen3:1.7b` | lokales Modell, ohne Internet |
 | `~/bootcamp/scripts/selftest.sh` | prüft, ob alles läuft |
 | `bootcamp-setup` | Schlüssel neu eintragen |
 
@@ -85,7 +84,7 @@ nützlich. Der Schlüssel wird nach dem Kurs deaktiviert.
 | Problem | Das hilft |
 |---|---|
 | VM startet nicht, Meldung zu Virtualisierung | Bei der Bootcamp-Leitung melden, nicht selbst herumschrauben |
-| VM ist sehr langsam | Auf dem Host andere Programme schliessen. Bei 8 GB RAM: `sudo systemctl disable --now ollama` |
+| VM ist sehr langsam | Auf dem Host andere Programme schliessen. Nicht gebrauchte Dienste beenden: `cd ~/bootcamp/docker && docker compose down` |
 | Bildschirm passt sich nicht an | VM-Fenster einmal in der Grösse ändern |
 | Kein Copy-Paste zum Host | In den VM-Einstellungen die Zwischenablage auf bidirektional |
 | `docker: permission denied` | Einmal ab- und wieder anmelden |
