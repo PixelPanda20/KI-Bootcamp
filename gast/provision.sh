@@ -106,10 +106,33 @@ esac
 # -----------------------------------------------------------------------------
 log "3/11  Docker"
 # -----------------------------------------------------------------------------
-if ! command -v docker >/dev/null 2>&1; then
+# Debian bringt ein eigenes Docker-Paket mit (docker.io). Es ist deutlich
+# älter und liefert das compose-Plugin NICHT mit. Ohne "docker compose"
+# funktionieren Open WebUI, Portainer und der Autostart alle nicht — und der
+# Fehler fällt erst auf, wenn am Kurstag niemand mehr Zeit hat.
+#
+# Deshalb wird hier nicht auf "gibt es docker" geprüft, sondern gezielt auf
+# docker-ce. Vorhandene Debian-Pakete werden vorher entfernt, so steht es auch
+# in Dockers eigener Anleitung.
+paket_da() { dpkg-query -W -f='${Status}' "$1" 2>/dev/null | grep -q 'ok installed'; }
+
+for alt_paket in docker.io docker-doc docker-compose docker-compose-v2 \
+                 podman-docker containerd runc; do
+    if paket_da "$alt_paket"; then
+        warn "Debian-Paket $alt_paket gefunden — wird durch Docker CE ersetzt"
+        sudo systemctl stop docker docker.socket containerd 2>/dev/null || true
+        sudo DEBIAN_FRONTEND=noninteractive apt-get purge -y \
+            docker.io docker-doc docker-compose docker-compose-v2 \
+            podman-docker containerd runc 2>/dev/null || true
+        sudo apt-get autoremove -y
+        break
+    fi
+done
+
+if ! paket_da docker-ce; then
     sudo install -m 0755 -d /etc/apt/keyrings
     curl -fsSL https://download.docker.com/linux/debian/gpg |
-        sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+        sudo gpg --dearmor --yes -o /etc/apt/keyrings/docker.gpg
     sudo chmod a+r /etc/apt/keyrings/docker.gpg
     echo "deb [arch=$ARCH signed-by=/etc/apt/keyrings/docker.gpg] \
 https://download.docker.com/linux/debian $CODENAME stable" |
@@ -118,9 +141,24 @@ https://download.docker.com/linux/debian $CODENAME stable" |
     sudo apt-get install -y docker-ce docker-ce-cli containerd.io \
         docker-buildx-plugin docker-compose-plugin
 fi
+
 sudo usermod -aG docker "$BENUTZER"
-sudo systemctl enable --now docker
-ok "$(docker --version | cut -d, -f1), Gruppe ab nächster Anmeldung aktiv"
+sudo systemctl enable --now docker.service
+
+# Nicht bloss enablen, sondern nachsehen, ob es auch läuft. Ein Daemon, der
+# beim Start scheitert, bleibt sonst bis zum Selbsttest unbemerkt.
+if sudo docker info >/dev/null 2>&1; then
+    ok "$(docker --version | cut -d, -f1), Gruppe ab nächster Anmeldung aktiv"
+else
+    warn "Docker-Dienst startet nicht. Ursache zeigt: journalctl -u docker -n 30"
+fi
+
+# Das compose-Plugin ist die Voraussetzung für alles Weitere.
+if docker compose version >/dev/null 2>&1 || sudo docker compose version >/dev/null 2>&1; then
+    ok "docker compose vorhanden"
+else
+    warn "docker compose fehlt — Open WebUI und Portainer werden nicht starten"
+fi
 
 # lazydocker: alle Container mit Protokollen und Auslastung auf einem Schirm.
 # Im Alltag schneller als jede Weboberfläche und kostet nichts, wenn es ruht.
@@ -406,6 +444,11 @@ if ! command -v docker >/dev/null 2>&1; then
     NEIN "Docker installiert" "Provisionierung erneut laufen lassen"
 elif docker info >/dev/null 2>&1; then
     JA "Docker läuft"
+    if docker compose version >/dev/null 2>&1; then
+        JA "docker compose"
+    else
+        NEIN "docker compose" "Plugin fehlt. Vermutlich ist Debians docker.io statt Docker CE installiert: docker --version zeigt dann +dfsg. Provisionierung erneut laufen lassen."
+    fi
 else
     MELDUNG="$(docker info 2>&1 >/dev/null | head -3)"
     case "$MELDUNG" in
