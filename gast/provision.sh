@@ -367,44 +367,92 @@ log "10/11  Hilfsskripte"
 # -----------------------------------------------------------------------------
 cat >"$WORK/scripts/selftest.sh" <<'EOF'
 #!/usr/bin/env bash
-# Abnahmetest der Bootcamp-VM
-pass=0; fail=0
-chk() { if eval "$2" >/dev/null 2>&1; then echo "  ✓ $1"; ((pass++)); else echo "  ✗ $1"; ((fail++)); fi; }
+# Abnahmetest der Bootcamp-VM.
+#
+# Unterscheidet drei Zustände statt zwei:
+#   ✓  in Ordnung
+#   ○  noch offen, aber zu diesem Zeitpunkt normal
+#   ✗  echter Fehler
+#
+# Der Unterschied ist wichtig: direkt nach der Provisionierung über SSH sind
+# zwei Punkte zwangsläufig offen, weil die Gruppe "docker" erst bei der
+# nächsten Anmeldung greift und der Schlüssel erst beim ersten grafischen
+# Start abgefragt wird. Das sind keine Fehler.
+
+ok=0; offen=0; fehler=0
+JA()   { printf '  \033[0;32m✓\033[0m %s\n' "$1"; ok=$((ok+1)); }
+OFFEN(){ printf '  \033[0;33m○\033[0m %s\n     \033[0;33m→ %s\033[0m\n' "$1" "$2"; offen=$((offen+1)); }
+NEIN() { printf '  \033[0;31m✗\033[0m %s\n     \033[0;31m→ %s\033[0m\n' "$1" "$2"; fehler=$((fehler+1)); }
+chk()  { if eval "$2" >/dev/null 2>&1; then JA "$1"; else NEIN "$1" "${3:-fehlt}"; fi; }
 
 echo "── Werkzeuge ──"
-chk "Python"        "python3 --version"
-chk "uv"            "command -v uv"
-chk "Node"          "command -v node"
-chk "Git"           "command -v git"
-chk "Docker läuft"  "docker info"
-chk "VS Code"       "command -v code"
-chk "OpenCode"      "command -v opencode"
-chk "promptfoo"     "command -v promptfoo"
-chk "lazydocker"    "command -v lazydocker"
-chk "ffmpeg"        "command -v ffmpeg"
+chk "Python"      "python3 --version"
+chk "uv"          "command -v uv"
+chk "Node"        "command -v node"
+chk "Git"         "command -v git"
+chk "VS Code"     "command -v code"
+chk "OpenCode"    "command -v opencode"
+chk "promptfoo"   "command -v promptfoo"      "npm i -g promptfoo"
+chk "lazydocker"  "command -v lazydocker"
+chk "ffmpeg"      "command -v ffmpeg"         "sudo apt install ffmpeg"
+
+echo "── Docker ──"
+if ! command -v docker >/dev/null 2>&1; then
+    NEIN "Docker installiert" "Provisionierung erneut laufen lassen"
+elif ! systemctl is-active --quiet docker; then
+    NEIN "Docker-Dienst" "sudo systemctl start docker"
+elif docker info >/dev/null 2>&1; then
+    JA "Docker läuft"
+elif id -nG | grep -qw docker; then
+    OFFEN "Docker-Zugriff" "Du bist in der Gruppe docker, aber diese Sitzung weiss es noch nicht. Einmal ab- und wieder anmelden."
+else
+    NEIN "Docker-Zugriff" "sudo usermod -aG docker $USER, dann neu anmelden"
+fi
 
 echo "── Python-Umgebung ──"
-source ~/bootcamp/.venv/bin/activate 2>/dev/null
-for m in openai httpx pydantic chromadb streamlit gradio fastapi pandas \
-         langchain langgraph smolagents pydantic_ai mcp faster_whisper; do
-  chk "import $m" "python -c 'import $m'"
-done
-
-echo "── Vorgeladene Modelle ──"
-chk "Embeddings gecacht" "python -c \"from chromadb.utils import embedding_functions as e; e.ONNXMiniLM_L6_V2()\""
-chk "Whisper gecacht"    "python -c \"from faster_whisper import WhisperModel as W; W('small', device='cpu', compute_type='int8')\""
+if source ~/bootcamp/.venv/bin/activate 2>/dev/null; then
+    for m in openai httpx pydantic chromadb streamlit gradio fastapi pandas \
+             langchain langgraph smolagents pydantic_ai mcp faster_whisper; do
+      chk "import $m" "python -c 'import $m'" "uv pip install $m"
+    done
+    echo "── Vorgeladene Modelle ──"
+    chk "Embeddings gecacht" "python -c \"from chromadb.utils import embedding_functions as e; e.ONNXMiniLM_L6_V2()\""
+    chk "Whisper gecacht"    "python -c \"from faster_whisper import WhisperModel as W; W('small', device='cpu', compute_type='int8')\""
+else
+    NEIN "Virtuelle Umgebung" "~/bootcamp/.venv fehlt, Provisionierung erneut laufen lassen"
+fi
 
 echo "── Zugang ──"
 set -a; [ -f ~/.config/bootcamp/env ] && . ~/.config/bootcamp/env; set +a
-chk "Schlüssel gesetzt" '[ -n "$OPENROUTER_API_KEY" ]'
-if [ -n "${OPENROUTER_API_KEY:-}" ]; then
-  chk "OpenRouter erreichbar" \
-    "curl -sf -H 'Authorization: Bearer $OPENROUTER_API_KEY' https://openrouter.ai/api/v1/key"
+if [ -z "${OPENROUTER_API_KEY:-}" ]; then
+    OFFEN "OpenRouter-Schlüssel" "Noch nicht eingetragen. Das ist vor dem ersten grafischen Anmelden normal. Jetzt nachholen: bootcamp-setup"
+elif curl -sf -H "Authorization: Bearer $OPENROUTER_API_KEY" https://openrouter.ai/api/v1/key >/dev/null; then
+    JA "OpenRouter erreichbar"
+else
+    NEIN "OpenRouter" "Schlüssel abgelehnt oder kein Netz. Prüfen: bootcamp-setup"
+fi
+
+echo "── Dienste ──"
+if systemctl --user is-enabled ki-bootcamp-webui.service >/dev/null 2>&1; then
+    JA "Open WebUI startet automatisch"
+else
+    OFFEN "Autostart Open WebUI" "Wird bei der nächsten grafischen Anmeldung aktiv. Sonst: ~/bootcamp/scripts/webui-autostart.sh an"
+fi
+if curl -sf -o /dev/null http://localhost:3000; then
+    JA "Open WebUI antwortet"
+else
+    OFFEN "Open WebUI" "Läuft noch nicht. Starten mit: webui"
 fi
 
 echo
-echo "  $pass bestanden, $fail offen"
-[ "$fail" -eq 0 ] && echo "  VM ist bereit." || echo "  Bitte offene Punkte prüfen."
+printf '  %d in Ordnung, %d offen, %d Fehler\n' "$ok" "$offen" "$fehler"
+if [ "$fehler" -gt 0 ]; then
+    echo "  Bitte die roten Punkte beheben."
+elif [ "$offen" -gt 0 ]; then
+    echo "  Keine Fehler. Die offenen Punkte erledigen sich beim nächsten Anmelden."
+else
+    echo "  VM ist bereit."
+fi
 EOF
 chmod +x "$WORK/scripts/selftest.sh"
 
