@@ -1,6 +1,6 @@
 # KI-Bootcamp — VM-Konfiguration
 
-Arbeitsumgebung für die Lernenden des BIT. Debian 13 mit XFCE, provisioniert über SSH.
+Arbeitsumgebung für die Lernenden des BIT. Debian 13 mit GNOME, provisioniert über SSH.
 
 ```
 setup.sh / setup.ps1        provisioniert die VM. Ein Befehl.
@@ -25,7 +25,7 @@ gast/                       wird von setup.sh in die VM übertragen
 
 **1 · VM anlegen und Debian installieren.** Siehe `docs/vm-anlegen.md`. Wichtig: bei der
 Installation das Root-Passwort leer lassen, sonst bekommt `bootcamp` keine sudo-Rechte. Bei
-der Softwareauswahl Xfce und SSH server anhaken.
+der Softwareauswahl GNOME und SSH server anhaken.
 
 **2 · Adresse ermitteln.** In der VM:
 
@@ -54,8 +54,8 @@ sudo poweroff
 
 ## Was in der VM steckt
 
-**Basis** Debian 13 mit XFCE auf X11, Zeitzone Europe/Zurich, Tastatur Schweizerdeutsch,
-Systemsprache Englisch, dunkles Erscheinungsbild
+**Basis** Debian 13 (trixie) mit GNOME auf Wayland, Anmeldung über GDM, Zeitzone
+Europe/Zurich, Tastatur Schweizerdeutsch, Systemsprache Englisch, dunkles Erscheinungsbild
 
 **Werkzeuge** VS Code mit vorbereitetem Arbeitsbereich · OpenCode · Continue · Python 3.12 mit uv · Node.js · Docker mit
 Compose · lazydocker · Git · promptfoo · ripgrep, fzf, jq, tmux, ffmpeg
@@ -83,14 +83,17 @@ jemand an der VM arbeitet. Aus- und wieder einschalten mit
 
 **Debian statt Ubuntu.** Debian 13 ist seit über einem Jahr gesetzt, während die aktuelle
 Ubuntu-LTS erst wenige Wochen alt ist. Für einen einmaligen Anlass mit dreissig Personen ist
-die frischeste Version die, die Überraschungen produziert. Dazu kommt: XFCE ist im Installer
-wählbar, es gibt kein Snap, die Kernwerkzeuge sind die vertrauten GNU-coreutils statt der
-Rust-Neufassung, und für ARM existieren offizielle Installationsabbilder.
+die frischeste Version die, die Überraschungen produziert. Dazu kommt: es gibt kein Snap, die
+Kernwerkzeuge sind die vertrauten GNU-coreutils statt der Rust-Neufassung, und für ARM
+existieren offizielle Installationsabbilder.
 
-**XFCE statt GNOME.** Rund 800 MB weniger Arbeitsspeicher, und es läuft auf X11. In einer VM
-mit 6 GB, in der Docker, VS Code und ein Agenten-Verbund gleichzeitig laufen, ist das der
-Abstand zwischen komfortabel und Auslagerungsdatei. X11 sorgt zudem dafür, dass sich die
-VM unter jedem Hypervisor gleich verhält, statt unter Wayland je nach Hypervisor anders.
+**GNOME, so wie der Installer es liefert.** Ursprünglich war XFCE auf X11 vorgesehen, mit dem
+Argument von rund 800 MB weniger Arbeitsspeicher. An der fertigen VM gemessen trägt das nicht:
+mit laufendem Open WebUI belegt GNOME auf Wayland 1,9 GB von 7,8 GB, der Start dauert 11
+Sekunden. Bei 8 GB Zuteilung und aktivem zram ist das kein Engpass — und ein Desktop, den der
+Installer ohne Zusatzschritt mitbringt, ist einer weniger, der beim Aufbau schiefgehen kann.
+Hintergrundbild, dunkles Erscheinungsbild und abgeschaltete Bildschirmsperre setzt
+`desktop-anpassen.sh` per `gsettings` bei der ersten Anmeldung.
 
 **VMware statt VirtualBox.** VMware läuft neben aktiver virtualisierungsbasierter Sicherheit.
 Oracle führt den gemeinsamen Betrieb von VirtualBox und Hyper-V als experimentelle Funktion
