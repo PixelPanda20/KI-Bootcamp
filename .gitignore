@@ -1,0 +1,23 @@
+# Nichts, was einen Schlüssel enthalten könnte
+.env
+env
+*.key
+schluessel-*.csv
+
+# Abbilder und Datenträger
+*.ova
+*.vdi
+*.vmdk
+*.iso
+*.sha256
+
+# Laufzeit
+provision.log
+__pycache__/
+*.pyc
+.venv/
+node_modules/
+
+# Betriebssysteme
+.DS_Store
+Thumbs.db
