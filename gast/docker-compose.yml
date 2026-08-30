@@ -1,0 +1,125 @@
+# =============================================================================
+#  KI-Bootcamp VM — Dienste
+#
+#      docker compose up -d                      Open WebUI, Port 3000
+#      docker compose --profile tools up -d      + Portainer, Port 9000
+#      docker compose --profile rag  up -d       + Qdrant,    Port 6333
+#      docker compose --profile lcnc up -d       + n8n,       Port 5678
+#
+#  Alle Ports sind an 127.0.0.1 gebunden. Ohne das wären die Dienste im
+#  Gäste-WLAN des Kursraums für alle offen.
+#
+#  Der Schlüssel steht NICHT in dieser Datei. Er kommt aus
+#  ~/.config/bootcamp/env, damit die Datei ins Repository darf.
+# =============================================================================
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # Open WebUI gegen OpenRouter. Der Chat, mit dem die Lernenden am ersten Tag
+  # arbeiten, und die Grundlage der Übung "Web-KI-Chat selbst betreiben".
+  # ---------------------------------------------------------------------------
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open-webui
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:8080"
+    env_file:
+      - ${HOME}/.config/bootcamp/env
+    environment:
+      # OpenRouter spricht das OpenAI-Protokoll
+      OPENAI_API_BASE_URL: "https://openrouter.ai/api/v1"
+      OPENAI_API_KEY: "${OPENROUTER_API_KEY}"
+
+      WEBUI_NAME: "BIT KI-Bootcamp"
+      WEBUI_AUTH: "True"
+      ENABLE_SIGNUP: "True"        # nach dem ersten Login auf False setzen
+      DEFAULT_USER_ROLE: "admin"
+      ENABLE_BASE_MODELS_CACHE: "True"
+
+      # Keine Telemetrie nach aussen — Vorgabe Bundesverwaltung
+      ANONYMIZED_TELEMETRY: "False"
+      DO_NOT_TRACK: "true"
+      SCARF_NO_ANALYTICS: "true"
+
+      OLLAMA_BASE_URL: "http://host.docker.internal:11434"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - open-webui-data:/app/backend/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  # ---------------------------------------------------------------------------
+  # Portainer — grafische Docker-Verwaltung.  admin / bootcamp2026
+  #
+  # Port 9000 statt 9443: 9443 ist HTTPS mit selbstsigniertem Zertifikat, und
+  # eine weggeklickte Zertifikatswarnung ist die falsche Lektion in einem Kurs,
+  # in dem es später um echte Sicherheit geht.
+  #
+  # Der eingehängte Docker-Socket gibt dem Container faktisch Rootrechte auf
+  # dem Wirt. In einer Übungs-VM vertretbar, produktiv nicht — ein brauchbares
+  # Beispiel dafür, warum Berechtigungen mehr zählen als gute Absichten.
+  # ---------------------------------------------------------------------------
+  portainer:
+    image: portainer/portainer-ce:lts
+    container_name: portainer
+    profiles: ["tools"]
+    restart: unless-stopped
+    command: --admin-password-file /run/portainer-admin --http-enabled
+    ports:
+      - "127.0.0.1:9000:9000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer-data:/data
+      - ${HOME}/.config/bootcamp/portainer-admin:/run/portainer-admin:ro
+
+  # ---------------------------------------------------------------------------
+  # Qdrant — Vektordatenbank für die RAG-Vertiefung. Standardmässig aus, damit
+  # die VM auf 6 GB nicht ins Auslagern kommt.
+  # ---------------------------------------------------------------------------
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: qdrant
+    profiles: ["rag"]
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6333:6333"
+    volumes:
+      - qdrant-data:/qdrant/storage
+
+  # ---------------------------------------------------------------------------
+  # n8n — Low-Code-Automatisierung, selbst gehostet.
+  #
+  # Am externen Kurs arbeiten die Lernenden mit einer lizenzierten
+  # Low-Code-Plattform. Diese Lizenz haben sie danach nicht mehr. n8n ist die
+  # quelloffene Variante, die im BIT weiterlebt, damit der Faden nicht mit dem
+  # Kurs abreisst.
+  # ---------------------------------------------------------------------------
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    container_name: n8n
+    profiles: ["lcnc"]
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5678:5678"
+    env_file:
+      - ${HOME}/.config/bootcamp/env
+    environment:
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_VERSION_NOTIFICATIONS_ENABLED: "false"
+      N8N_SECURE_COOKIE: "false"        # nur lokal, kein HTTPS in der VM
+      GENERIC_TIMEZONE: "Europe/Zurich"
+    volumes:
+      - n8n-data:/home/node/.n8n
+
+volumes:
+  open-webui-data:
+  portainer-data:
+  qdrant-data:
+  n8n-data:
