@@ -717,7 +717,17 @@ echo "Proxy gesetzt. Neue Shell oeffnen."
 EOF
 chmod +x "$WORK/scripts/proxy-setup.sh"
 
-cp "$HIER/prepare-export.sh" "$HIER/webui-autostart.sh" "$WORK/scripts/" 2>/dev/null || true
+cp "$HIER/prepare-export.sh" "$HIER/webui-autostart.sh" "$HIER/webui-update.sh" "$WORK/scripts/" 2>/dev/null || true
+
+# Werkzeuge fuer Open WebUI. Sie lassen sich nicht aus einem Verzeichnis laden -
+# Open WebUI kennt kein TOOLS_DIR, am Quellcode geprueft. Sie leben in der
+# Datenbank und werden ueber die Oberflaeche importiert. Weil die Vorlage
+# absichtlich ohne Benutzerkonto ausgeliefert wird, kann der Import nicht
+# vorweggenommen werden: die Tabelle haengt am Konto der lernenden Person.
+# Deshalb liegt die Datei bereit, und docs/lernende.md nennt die drei Klicks.
+mkdir -p "$WORK/tools"
+cp "$HIER/openwebui-tools/generate_slides.py" "$HIER/openwebui-tools/README.md" "$WORK/tools/" 2>/dev/null || true
+chmod +x "$WORK/scripts/webui-update.sh" 2>/dev/null || true
 [[ -d "$HIER/optional" ]] && cp -a "$HIER/optional/." "$WORK/scripts/"
 chmod +x "$WORK"/scripts/*.sh 2>/dev/null || true
 ok "Hilfsskripte unter $WORK/scripts/"

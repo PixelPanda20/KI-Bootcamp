@@ -94,6 +94,12 @@ gruen "\nGespeichert unter $ENVFILE (nur für dich lesbar)."
 # Open WebUI neu anlegen, damit der frische Schlüssel im Container landet.
 # Ein blosser Neustart genügt nicht: Umgebungsvariablen werden beim Anlegen
 # des Containers gesetzt, nicht bei jedem Start.
+#
+# Das allein reicht aber nicht. Open WebUI behandelt OPENAI_API_KEY als
+# "PersistentConfig" und liest ihn nach dem ersten Start aus seiner eigenen
+# Datenbank statt aus der Umgebung. Dagegen setzt docker-compose.yml
+# ENABLE_PERSISTENT_CONFIG=False - ohne diese Zeile landet der Schluessel hier
+# zwar in der Datei, aber nie in der Anfrage an OpenRouter.
 if systemctl --user is-active ki-bootcamp-webui.service >/dev/null 2>&1; then
     blau "Open WebUI wird mit dem neuen Schlüssel neu gestartet …"
     systemctl --user restart ki-bootcamp-webui.service >/dev/null 2>&1 || true

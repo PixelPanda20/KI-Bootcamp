@@ -66,6 +66,42 @@ Ordnung. Dafür ist eine VM da.
 | `code ~/bootcamp` | VS Code öffnen — Interpreter, Debugger und Aufgaben sind eingerichtet |
 | `~/bootcamp/scripts/selftest.sh` | prüft, ob alles läuft |
 | `bootcamp-setup` | Schlüssel neu eintragen |
+| `~/bootcamp/scripts/webui-update.sh` | zeigt, welche Open-WebUI-Version läuft; mit Versionsnummer aktualisiert sie |
+
+---
+
+## Präsentationen erzeugen
+
+Open WebUI kann `.pptx`-Dateien schreiben — echte PowerPoint-Folien, in denen Text, Diagramme
+und Formen bearbeitbar bleiben, nicht Bilder von Folien. Das Werkzeug dafür liegt in der VM
+bereit, muss aber einmalig eingebunden werden. Open WebUI verwaltet Werkzeuge in seiner
+Datenbank, und die gehört zu deinem Konto — deshalb kann dir das niemand abnehmen.
+
+**Einmalig, nach dem Anlegen deines Open-WebUI-Kontos:**
+
+1. In Open WebUI oben rechts auf dein Kürzel → **Workspace** → Reiter **Tools**
+2. **`+`** → **Import from File**
+3. Die Datei `~/bootcamp/tools/generate_slides.py` auswählen
+4. Speichern, dann im Chat unten bei **Tools** den Schalter *Generate Slides* einschalten
+
+Beim ersten Aufruf lädt Open WebUI die Pakete `python-pptx` und `pillow` nach. Das dauert
+einige Sekunden und braucht einmal Internet.
+
+**Danach genügt eine Ansage im Chat**, zum Beispiel:
+
+> Erstelle eine Präsentation mit acht Folien über Retrieval-Augmented Generation für ein
+> Fachpublikum: Titel, Überblick, wie es funktioniert, ein Diagramm zum Vergleich der
+> Antwortqualität, Grenzen, Fazit.
+
+Das Modell schreibt die Gliederung, das Werkzeug baut daraus die Datei, und im Chat erscheint
+ein Link zum Herunterladen.
+
+**Was du wissen solltest:** Das Werkzeug läuft im Open-WebUI-Dienst, nicht im Modell. Der
+Inhalt deiner Folien wird also vom Modell bei OpenRouter erzeugt — wie jede andere Antwort
+auch. Bilder holt es standardmässig **nicht** aus dem Netz; dafür wäre ein eigener
+Unsplash-Schlüssel nötig, den die Vorlage bewusst nicht enthält.
+
+Herkunft, Lizenz und was daran geprüft wurde, steht in `~/bootcamp/tools/README.md`.
 
 ---
 
@@ -113,6 +149,7 @@ nützlich. Der Schlüssel wird nach dem Kurs deaktiviert.
 | Open WebUI zeigt keine Modelle | Schlüssel prüfen: `bootcamp-setup` |
 | Open WebUI antwortet nicht | `~/bootcamp/scripts/webui-autostart.sh status` |
 | Kein Internet im BIT-Netz | `~/bootcamp/scripts/proxy-setup.sh http://proxy:port` |
+| Open WebUI meldet eine neue Version | Nicht in der Oberfläche aktualisieren — das Abbild ist absichtlich festgelegt. Der Weg: `~/bootcamp/scripts/webui-update.sh <version>` |
 | Alles kaputt | Sicherungspunkt `Startzustand` wiederherstellen |
 
 Kommst du nicht weiter: frag die Lernenden, die die VM mitgebaut haben. Sie kennen den Aufbau
