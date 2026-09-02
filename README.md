@@ -68,6 +68,16 @@ pandas, matplotlib, JupyterLab · deepeval
 Anmeldung automatisch. Optional Portainer (`--profile tools`), Qdrant (`--profile rag`),
 n8n (`--profile lcnc`).
 
+**Präsentationen** Ein Werkzeug für Open WebUI erzeugt native `.pptx`-Dateien mit
+bearbeitbarem Text, Diagrammen und Formen. Es liegt unter `~/bootcamp/tools/` und wird von der
+lernenden Person einmalig in Open WebUI importiert — Werkzeuge hängen dort am Benutzerkonto,
+und die Vorlage wird bewusst ohne Konto ausgeliefert. Herkunft, Lizenz und Prüfergebnis stehen
+in `gast/openwebui-tools/README.md`.
+
+**Open WebUI aktualisieren** `~/bootcamp/scripts/webui-update.sh <version>`. Es schreibt die
+neue Kennung in `docker-compose.yml`, sichert vorher die Daten und setzt bei Misserfolg
+selbsttätig zurück. Bewusst kein `:latest` — sonst wäre das Pinnen wertlos.
+
 Der Autostart läuft über eine systemd-Benutzereinheit, nicht über `restart: unless-stopped`
 in der Compose-Datei. Letzteres startet einen Container zwar nach einem Neustart wieder, aber
 nur wenn er vorher schon einmal angelegt wurde — bei einer frisch verteilten VM existiert er

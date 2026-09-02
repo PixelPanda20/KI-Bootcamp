@@ -24,7 +24,7 @@ services:
     # seit dem Bau dieser Vorlage bereits weitergewandert (installiert
     # sha256:c792953…, Registry sha256:1d023df6…). Bei dreissig verteilten
     # Kopien muss zweimal Bauen zweimal dasselbe ergeben.
-    image: ghcr.io/open-webui/open-webui:0.11.1
+    image: ghcr.io/open-webui/open-webui:0.11.3
     container_name: open-webui
     restart: unless-stopped
     ports:
@@ -37,6 +37,22 @@ services:
     environment:
       # OpenRouter spricht das OpenAI-Protokoll
       OPENAI_API_BASE_URL: "https://openrouter.ai/api/v1"
+
+      # Ohne diese Zeile erreicht der Schluessel der Lernenden Open WebUI nie.
+      # OPENAI_API_KEY und OPENAI_API_BASE_URL sind bei Open WebUI
+      # "PersistentConfig": beim allerersten Start wird der Wert aus der
+      # Umgebung in die Datenbank geschrieben, danach gewinnt die Datenbank.
+      # Die Vorlage startet den Container beim Bauen mit LEEREM Schluessel -
+      # damit steht die leere Zeichenkette fest in der Datenbank. bootcamp-setup
+      # legt den Container spaeter zwar neu an, aendert daran aber nichts, und
+      # OpenRouter antwortet auf die Anfrage ohne Authorization-Kopfzeile mit
+      # 401 "No cookie auth credentials found". Genau so aufgetreten.
+      #
+      # False dreht den Vorrang um: die Umgebung gewinnt, also die Datei
+      # ~/.config/bootcamp/env. Preis dafuer: Aenderungen an diesen Werten in
+      # der Oberflaeche ueberleben keinen Neustart des Containers. Fuer diese
+      # VM ist das erwuenscht - der Schluessel soll an genau einer Stelle stehen.
+      ENABLE_PERSISTENT_CONFIG: "False"
 
       WEBUI_NAME: "BIT KI-Bootcamp"
       WEBUI_AUTH: "True"
