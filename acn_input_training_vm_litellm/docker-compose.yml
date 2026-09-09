@@ -1,0 +1,328 @@
+# BIT KI-Bootcamp — Kurs-Stack (LiteLLM-Variante)
+#
+# Open WebUI + n8n + PostgreSQL/pgvector + LiteLLM.
+# Es laufen KEINE Modelle lokal. Die Inferenz erfolgt über OpenRouter oder
+# Azure AI Foundry; die Umschaltung geschieht in services/litellm/.
+#
+#   docker compose up -d      Stack starten
+#   docker compose ps         Status
+#   docker compose logs -f    Logs
+#   docker compose down       Stoppen (Daten bleiben in den Volumes)
+
+services:
+  # ---------------------------------------------------------------------
+  # Caddy — Reverse Proxy. Einziger veröffentlichter HTTP-Port im Stack.
+  #
+  # Die Weboberflächen laufen dadurch über Namen statt Ports:
+  #   http://bit-chat      Open WebUI
+  #   http://bit-n8n       n8n
+  #   http://bit-litellm   LiteLLM-Oberfläche (Keys, Ausgaben, Logs)
+  #
+  # Die Namen kommen aus /etc/hosts. Auf der VM schreibt provision.sh sie,
+  # auf einem anderen Rechner: make hosts.
+  # ---------------------------------------------------------------------
+  caddy:
+    image: caddy:2.11.4-alpine
+    container_name: bit_caddy
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-80}:80"
+    configs:
+      - source: caddyfile
+        target: /etc/caddy/Caddyfile
+    depends_on:
+      - open-webui
+      - n8n
+      - litellm
+
+  # ---------------------------------------------------------------------
+  # PostgreSQL mit pgvector — n8n-Datenbank und Vector Store für RAG
+  # ---------------------------------------------------------------------
+  postgres:
+    # n8n 2.x pflegt aktiv PG 17 und 18; 16 gilt nur noch als
+    # Kompatibilitätsstufe. Für ein frisch gebautes Image ist 17 die
+    # langlebigere Wahl. Wechsel der Major-Version erfordert ein leeres
+    # Volume (docker compose down -v).
+    image: pgvector/pgvector:pg17
+    container_name: bit_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-n8n}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-n8n}
+      POSTGRES_DB: ${POSTGRES_DB:-n8n}
+    ports:
+      # Nur der HOST-Port ist konfigurierbar. Im Container bleibt es 5432,
+      # daran hängt DB_POSTGRESDB_PORT von n8n — das läuft über das
+      # Compose-Netz und ist von dieser Zuordnung nicht betroffen.
+      # POSTGRES_PORT setzen, wenn auf dem Host schon etwas auf 5432 lauscht
+      # ("port is already allocated").
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    configs:
+      - source: postgres_init
+        target: /docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # ---------------------------------------------------------------------
+  # LiteLLM — LLM-Gateway.
+  #
+  # Nimmt Chat, Bilder und Modell-Liste entgegen und leitet an den Provider
+  # weiter. Der Modellkatalog steht in services/litellm/ — was dort nicht
+  # eingetragen ist, sieht Open WebUI gar nicht erst. Eine zusätzliche
+  # Modellsperre in Open WebUI ist damit nicht nötig.
+  #
+  # Das -database-Image bringt Prisma und die Migrationen mit. Nötig, weil
+  # Virtual Keys und Ausgaben in Postgres liegen; das schlanke Image ohne
+  # Datenbank kann beides nicht.
+  # ---------------------------------------------------------------------
+  litellm:
+    image: ghcr.io/berriai/litellm-database:v1.100.0
+    container_name: bit_litellm
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${LITELLM_PORT:-4000}:4000"
+    environment:
+      # Schlüssel des Providers. Verlässt den Container nicht — Open WebUI
+      # und n8n authentifizieren sich mit LITELLM_MASTER_KEY bzw. mit einem
+      # Virtual Key, nie mit diesem hier.
+      AI_API_KEY: ${AI_API_KEY:-}
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-sk-bit-bootcamp-master}
+
+      # Azure-Variante (config.azure.yaml). Bleiben bei OpenRouter leer.
+      AZURE_ENDPOINT: ${AZURE_ENDPOINT:-}
+      AZURE_API_VERSION: ${AZURE_API_VERSION:-2024-12-01-preview}
+      AZURE_IMAGE_API_VERSION: ${AZURE_IMAGE_API_VERSION:-preview}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+
+      # Ausgabenlimit in USD über einen Zeitraum. Gezählt wird, was
+      # tatsächlich abgerechnet wird — Chat und Bilder gemeinsam.
+      LITELLM_MAX_BUDGET_USD: ${LITELLM_MAX_BUDGET_USD:-25}
+      LITELLM_BUDGET_DURATION: ${LITELLM_BUDGET_DURATION:-30d}
+
+      # Eigene Datenbank im vorhandenen pgvector-Container. Ohne sie wären
+      # Virtual Keys und Ausgaben nach jedem Neustart weg.
+      DATABASE_URL: postgresql://${POSTGRES_USER:-n8n}:${POSTGRES_PASSWORD:-n8n}@postgres:5432/litellm
+
+      # Attribution auf dem OpenRouter-Dashboard. LiteLLM liest genau diese
+      # beiden Namen und baut daraus HTTP-Referer und X-Title.
+      OR_SITE_URL: https://bit.admin.ch
+      OR_APP_NAME: BIT KI-Bootcamp
+
+      LITELLM_LOG: ${LITELLM_LOG:-INFO}
+    volumes:
+      # Ganzes Verzeichnis, nicht die einzelne Datei: so liegen beide
+      # Varianten im Container und LITELLM_CONFIG entscheidet.
+      - ./services/litellm:/config:ro
+    command:
+      - "--config"
+      - "/config/${LITELLM_CONFIG:-config.yaml}"
+      - "--port"
+      - "4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ---------------------------------------------------------------------
+  # Open WebUI — Chat-Oberfläche (Tag 1)
+  # ---------------------------------------------------------------------
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:0.11.1
+    container_name: bit_open_webui
+    restart: unless-stopped
+    # Kein published port: der Zugriff läuft über Caddy (http://bit-chat).
+    environment:
+      # Damit Open WebUI Links und Redirects auf den richtigen Namen baut.
+      WEBUI_URL: ${WEBUI_URL:-http://bit-chat}
+
+      # Chat läuft über LiteLLM. Der Modellwähler zeigt genau die Modelle,
+      # die der hier verwendete Schlüssel benutzen darf — eine Allowlist auf
+      # Seite von Open WebUI ist damit überflüssig.
+      #
+      # Vorgabe ist der Master-Key, damit der Stack ohne Zwischenschritt
+      # startet. Der darf aber ALLES, auch das Bildmodell, und das steht dann
+      # im Chat-Modellwähler. "make bootstrap" erzeugt einen auf die
+      # Chat-Modelle beschränkten Schlüssel und setzt OPENWEBUI_CHAT_KEY.
+      OPENAI_API_BASE_URL: http://litellm:4000/v1
+      OPENAI_API_KEY: ${OPENWEBUI_CHAT_KEY:-${LITELLM_MASTER_KEY:-sk-bit-bootcamp-master}}
+      ENABLE_OLLAMA_API: "false"
+
+      # Modell-Picker: Vorauswahl und Reihenfolge.
+      DEFAULT_MODELS: ${DEFAULT_MODELS:-$CHAT_MODEL}
+      MODEL_ORDER_LIST: ${MODEL_ORDER_LIST:-[]}
+
+      # "arena-model" ist ein eingebautes Modell von Open WebUI, kein Eintrag
+      # aus LiteLLM. Es taucht sonst als achter Eintrag im Modellwähler auf und
+      # verwirrt beim Modellvergleich an Tag 1.
+      ENABLE_EVALUATION_ARENA_MODELS: "false"
+
+      # Titel- und Tag-Generierung laufen bei JEDER Nachricht zusätzlich zum
+      # Chat. Ohne diese Zeile nimmt Open WebUI dafür das gerade gewählte
+      # Modell — bei einem teuren Modell verdoppelt das die Kosten still.
+      TASK_MODEL_EXTERNAL: ${TASK_MODEL:-$CHAT_MODEL}
+
+      # Bilder: ebenfalls über LiteLLM. Dass OpenRouter den OpenAI-Pfad
+      # /images/generations nicht kennt, löst LiteLLM intern — es schickt
+      # eine Chat-Completion mit image_config und liest das Bild aus der
+      # Antwort. Der Stack muss diese Übersetzung nicht selbst leisten.
+      ENABLE_IMAGE_GENERATION: "true"
+      IMAGE_GENERATION_ENGINE: openai
+      IMAGES_OPENAI_API_BASE_URL: http://litellm:4000/v1
+      IMAGES_OPENAI_API_KEY: ${LITELLM_MASTER_KEY:-sk-bit-bootcamp-master}
+      IMAGE_GENERATION_MODEL: ${IMAGE_MODEL:-google/gemini-2.5-flash-image}
+
+      # RAG-Embeddings über LiteLLM. Ohne diese drei Zeilen würde Open WebUI
+      # für RAG ein lokales Sentence-Transformers-Modell laden (langsam,
+      # großer Download). Mit ihnen landet jeder /embed-Aufruf beim Proxy.
+      RAG_EMBEDDING_ENGINE: openai
+      RAG_OPENAI_API_BASE_URL: http://litellm:4000/v1
+      RAG_OPENAI_API_KEY: ${LITELLM_MASTER_KEY:-sk-bit-bootcamp-master}
+      RAG_EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
+
+      # Lokale Kurs-VM: Registrierung offen, erster Account wird Admin.
+      WEBUI_AUTH: ${WEBUI_AUTH:-true}
+      ENABLE_SIGNUP: ${ENABLE_SIGNUP:-true}
+      WEBUI_NAME: "BIT KI-Bootcamp"
+      # Keine Telemetrie und keine externen Modell-Downloads.
+      SCARF_NO_ANALYTICS: "true"
+      DO_NOT_TRACK: "true"
+      ANONYMIZED_TELEMETRY: "false"
+    volumes:
+      - open_webui_data:/app/backend/data
+    depends_on:
+      litellm:
+        condition: service_started
+
+  # ---------------------------------------------------------------------
+  # n8n — Low-Code/No-Code Agentic AI (Tag 2)
+  # ---------------------------------------------------------------------
+  n8n:
+    # 2.36.9 == der Digest von :latest (Stand 31.08.2026). n8n und runners
+    # werden im Gleichschritt veröffentlicht und MÜSSEN dieselbe Version haben.
+    image: n8nio/n8n:2.36.9
+    container_name: bit_n8n
+    restart: unless-stopped
+    # Kein published port: der Zugriff läuft über Caddy (http://bit-n8n).
+    environment:
+      # Hinter dem Reverse Proxy. Ohne N8N_HOST/WEBHOOK_URL zeigen die in der
+      # Oberfläche angezeigten Webhook-URLs auf "localhost:5678" und sind von
+      # aussen nicht aufrufbar — das bricht die Übungen an Tag 2.
+      N8N_HOST: bit-n8n
+      N8N_PROTOCOL: http
+      WEBHOOK_URL: ${WEBHOOK_URL:-http://bit-n8n/}
+      N8N_PROXY_HOPS: 1
+
+      # n8n setzt sein Auth-Cookie sonst als "secure" und verweigert dann
+      # jeden Zugriff, der weder HTTPS noch exakt "localhost" ist — also
+      # genau http://bit-n8n. Alternative wäre TLS, was ein selbst signiertes
+      # Zertifikat und eine Browser-Warnung pro Lernendem bedeutet.
+      # Vertretbar, weil der Stack nur lokal auf der Kurs-VM läuft.
+      N8N_SECURE_COOKIE: "false"
+
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: ${POSTGRES_DB:-n8n}
+      DB_POSTGRESDB_USER: ${POSTGRES_USER:-n8n}
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD:-n8n}
+
+      # Task Runner (externer Modus)
+      N8N_RUNNERS_MODE: external
+      N8N_RUNNERS_BROKER_LISTEN_ADDRESS: 0.0.0.0
+      N8N_RUNNERS_AUTH_TOKEN: ${N8N_RUNNERS_AUTH_TOKEN:-runners-secret}
+      N8N_NATIVE_PYTHON_RUNNER: "true"
+      N8N_RUNNERS_TASK_TIMEOUT: 300
+
+      # Auslaufende Defaults explizit setzen
+      N8N_UNVERIFIED_PACKAGES_ENABLED: "true"
+      N8N_COMPRESSION_NODE_MAX_DECOMPRESSED_SIZE_BYTES: 2147483648
+      N8N_COMPRESSION_NODE_MAX_ZIP_ENTRIES: 5000
+
+      GENERIC_TIMEZONE: Europe/Zurich
+      N8N_DIAGNOSTICS_ENABLED: "false"
+
+      # Für Code-Nodes verfügbar. Die eigentliche Credential wird in der
+      # n8n-Oberfläche angelegt — als "OpenAI", mit Base-URL
+      # http://litellm:4000/v1 und dem LiteLLM-Key. Ein eigener
+      # OpenRouter- oder Azure-Credential-Typ ist nicht nötig, weil
+      # LiteLLM beides hinter der OpenAI-Schnittstelle versteckt.
+      #
+      # Seit n8n 2.0 sperrt N8N_BLOCK_ENV_ACCESS_IN_NODE den Zugriff auf
+      # Umgebungsvariablen aus Code-Nodes standardmässig. Ohne das explizite
+      # "false" wären die drei Werte unten für die Lernenden unsichtbar
+      # ($env.CHAT_MODEL bliebe leer).
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
+      # Bewusst der LiteLLM-Key, nicht der des Providers: alles, was in n8n
+      # sichtbar wird, ist damit ein widerrufbarer Schlüssel mit Budget.
+      AI_API_KEY: ${LITELLM_MASTER_KEY:-sk-bit-bootcamp-master}
+      CHAT_BASE_URL: http://litellm:4000/v1
+      CHAT_MODEL: ${CHAT_MODEL:-}
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  n8n-task-runner:
+    # Version muss exakt der von n8n entsprechen.
+    image: n8nio/runners:2.36.9
+    container_name: bit_n8n_runner
+    restart: unless-stopped
+    environment:
+      N8N_RUNNERS_AUTH_TOKEN: ${N8N_RUNNERS_AUTH_TOKEN:-runners-secret}
+      N8N_RUNNERS_TASK_BROKER_URI: http://n8n:5679
+    depends_on:
+      - n8n
+
+volumes:
+  postgres_data:
+  open_webui_data:
+  n8n_data:
+
+configs:
+  caddyfile:
+    # Reine HTTP-Konfiguration: der Stack läuft lokal auf der VM, es gibt
+    # keine öffentlichen Namen und damit auch keine Zertifikate. "auto_https
+    # off" verhindert, dass Caddy es trotzdem versucht.
+    # Einrückung mit Tabs — sonst warnt Caddy bei jedem Start
+    # ("Caddyfile input is not formatted").
+    content: |
+      {
+      	admin off
+      	auto_https off
+      }
+
+      http://bit-chat {
+      	reverse_proxy open-webui:8080
+      }
+
+      http://bit-n8n {
+      	reverse_proxy n8n:5678
+      }
+
+      http://bit-litellm {
+      	reverse_proxy litellm:4000
+      }
+
+  postgres_init:
+    # Läuft nur beim ERSTEN Start (leeres Volume). Nach einer Änderung hier:
+    # docker compose down -v && docker compose up -d
+    content: |
+      CREATE EXTENSION IF NOT EXISTS vector;
+      -- Eigene Datenbank für die Übungen der Lernenden. Trennt Kursarbeit von
+      -- den Betriebstabellen von n8n, damit ein Reset des einen nicht das
+      -- andere löscht.
+      CREATE DATABASE bootcamp;
+      \c bootcamp
+      CREATE EXTENSION IF NOT EXISTS vector;
+      -- Virtual Keys und Ausgaben von LiteLLM. Nach derselben Logik wie
+      -- bootcamp getrennt: ein Reset der Kursdaten darf die ausgegebenen
+      -- Schlüssel nicht mitnehmen. Die Tabellen legt LiteLLM beim ersten
+      -- Start selbst an (Prisma-Migration).
+      \c postgres
+      CREATE DATABASE litellm;

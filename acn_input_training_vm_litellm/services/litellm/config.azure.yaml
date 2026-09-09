@@ -1,0 +1,82 @@
+# ===========================================================================
+# LiteLLM — Modellkatalog und Budget (Variante Azure AI Foundry)
+# ===========================================================================
+# Aktivieren über LITELLM_CONFIG=config.azure.yaml in der .env.
+#
+# Unterschied zur OpenRouter-Variante: bei Azure ist `model` der
+# DEPLOYMENT-Name, nicht der Katalogname des Modells. Ein Deployment namens
+# "gpt-4o-prod" heisst hier azure/gpt-4o-prod, unabhängig davon, welches
+# Modell dahinter liegt.
+#
+# Die Provider-Wahl ist kein Entweder-oder: model_list ist eine Liste, kein
+# Schalter. Azure- und OpenRouter-Modelle dürfen gleichzeitig darin stehen —
+# siehe Abschnitt "Gemischter Betrieb" weiter unten.
+# ===========================================================================
+
+model_list:
+  # --- Azure-Deployments -------------------------------------------------
+  # model_name ist frei wählbar; er ist der Name, den Open WebUI anzeigt und
+  # den DEFAULT_MODELS / MODEL_ORDER_LIST / TASK_MODEL in der .env treffen
+  # müssen. Bei Azure gibt es keine sprechenden Hersteller-IDs, deshalb hier
+  # die Deployment-Namen als Platzhalter.
+
+  - model_name: <deployment-name>
+    litellm_params:
+      model: azure/<deployment-name>
+      api_key: os.environ/AI_API_KEY
+      api_base: os.environ/AZURE_ENDPOINT
+      api_version: os.environ/AZURE_API_VERSION
+
+  # - model_name: <zweites-deployment>
+  #   litellm_params:
+  #     model: azure/<zweites-deployment>
+  #     api_key: os.environ/AI_API_KEY
+  #     api_base: os.environ/AZURE_ENDPOINT
+  #     api_version: os.environ/AZURE_API_VERSION
+
+  # --- Embedding-Modell --------------------------------------------------
+  # Deployment-Namen wie bei Chat: was in Azure unter diesem Namen
+  # deployed ist, entscheidet Azure — z. B. text-embedding-3-small.
+  # mode: embedding hält den Eintrag aus dem Chat-Schlüssel von
+  # "make bootstrap" heraus und damit aus dem Chat-Modellwähler.
+  # - model_name: text-embedding-3-small
+  #   litellm_params:
+  #     model: azure/<embedding-deployment-name>
+  #     api_key: os.environ/AI_API_KEY
+  #     api_base: os.environ/AZURE_ENDPOINT
+  #     api_version: os.environ/AZURE_API_VERSION
+  #   model_info:
+  #     mode: embedding
+
+  # --- Bildmodell --------------------------------------------------------
+  # Azure bedient /images/generations nativ; LiteLLM reicht durch.
+  # - model_name: <image-deployment-name>
+  #   litellm_params:
+  #     model: azure/<image-deployment-name>
+  #     api_key: os.environ/AI_API_KEY
+  #     api_base: os.environ/AZURE_ENDPOINT
+  #     api_version: os.environ/AZURE_IMAGE_API_VERSION
+  #   model_info:
+  #     mode: image_generation
+
+  # --- Gemischter Betrieb ------------------------------------------------
+  # Nichts hindert daran, hier zusätzlich OpenRouter-Modelle einzutragen.
+  # Sinnvoll etwa, wenn Azure die produktiven Modelle stellt, für den
+  # Modellvergleich an Tag 1 aber Modelle gebraucht werden, die auf der
+  # Azure-OpenAI-Fläche nicht existieren (Nemotron, GLM, Qwen, Kimi).
+  # Beide Schlüssel müssen dann gesetzt sein — deshalb ein eigener
+  # Umgebungsname statt AI_API_KEY für den zweiten Provider.
+  #
+  # - model_name: nvidia/nemotron-3-super-120b-a12b
+  #   litellm_params:
+  #     model: openrouter/nvidia/nemotron-3-super-120b-a12b
+  #     api_key: os.environ/OPENROUTER_API_KEY
+
+litellm_settings:
+  drop_params: true
+  max_budget: os.environ/LITELLM_MAX_BUDGET_USD
+  budget_duration: os.environ/LITELLM_BUDGET_DURATION
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  database_url: os.environ/DATABASE_URL

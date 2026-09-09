@@ -1,0 +1,11 @@
+# Enthält den Provider-Schlüssel und den LiteLLM-Master-Key.
+# Wird NIE verteilt — Vorlage ist .env.example.
+.env
+.env.bak
+
+.DS_Store
+
+__pycache__/
+*.pyc
+.ruff_cache/
+.venv/

@@ -1,0 +1,96 @@
+{
+  "name": "LiteLLM Demo — Chat und Bild",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "aaaaaaaa-1111-4111-8111-111111111111",
+      "name": "Start",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "google/gemini-2.5-flash",
+          "mode": "id"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "Schreibe einen kurzen englischen Bildprompt (max 15 Woerter) fuer ein Bergpanorama. Nur der Prompt, kein weiterer Text.",
+              "role": "user"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "bbbbbbbb-2222-4222-8222-222222222222",
+      "name": "Bildprompt erzeugen",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        220,
+        0
+      ],
+      "credentials": {
+        "openAiApi": {
+          "name": "LiteLLM Demo (Chat+Bild)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "operation": "generate",
+        "model": "google/gemini-2.5-flash-image",
+        "prompt": "={{ $json.message.content }}",
+        "options": {}
+      },
+      "id": "cccccccc-3333-4333-8333-333333333333",
+      "name": "Bild erzeugen",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        440,
+        0
+      ],
+      "credentials": {
+        "openAiApi": {
+          "name": "LiteLLM Demo (Chat+Bild)"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Start": {
+      "main": [
+        [
+          {
+            "node": "Bildprompt erzeugen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bildprompt erzeugen": {
+      "main": [
+        [
+          {
+            "node": "Bild erzeugen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

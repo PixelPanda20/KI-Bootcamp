@@ -1,0 +1,139 @@
+# ===========================================================================
+# LiteLLM — Modellkatalog und Budget (Variante OpenRouter)
+# ===========================================================================
+# Diese Datei erfüllt drei Aufgaben:
+#
+#   1. Sie IST die Allowlist. Open WebUI zeigt genau das an, was hier steht —
+#      GET /v1/models liefert nur diese model_name-Einträge. Eine zusätzliche
+#      Modellsperre auf Seite von Open WebUI ist damit nicht nötig.
+#   2. Sie normalisiert die Bildgenerierung. LiteLLM kennt OpenRouter nativ
+#      und übersetzt /v1/images/generations selbstständig (siehe Abschnitt
+#      "Bildmodell" weiter unten).
+#   3. Sie trägt das Budget: Ausgaben in USD, Chat und Bilder gemeinsam.
+#
+# Modellnamen: model_name ist der Name, den Open WebUI sieht. Er wurde bewusst
+# identisch zur OpenRouter-ID gewählt, damit DEFAULT_MODELS, MODEL_ORDER_LIST
+# und TASK_MODEL aus der .env unverändert weiterfunktionieren.
+#
+# Nach jeder Änderung:  docker compose restart litellm
+# ===========================================================================
+
+model_list:
+  # --- Chat-Modelle ------------------------------------------------------
+  # Alle sieben beherrschen Tool Calling, Voraussetzung für Tag 2 und Tag 3.
+  # Die Auswahl deckt bewusst mehrere Herkunftsländer und Anbieter ab
+  # (USA, FR, CN) — Grundlage für den Modellvergleich an Tag 1.
+  #
+  # mode: chat steht bei jedem Eintrag ausdrücklich da. "make bootstrap"
+  # filtert auf model_info.mode == "chat", um den Schlüssel für Open WebUI
+  # zusammenzustellen. Ohne die Angabe müsste LiteLLM den Modus aus seiner
+  # eigenen Cost-Map ableiten, die neuere oder seltenere Modell-IDs nicht
+  # zwingend kennt — dann erhielte Open WebUI einen Schlüssel mit zu wenigen
+  # Modellen, oder bootstrap bricht ab. Der explizite Eintrag macht das
+  # unabhängig von der LiteLLM-Version.
+
+  - model_name: google/gemini-2.5-flash
+    litellm_params:
+      model: openrouter/google/gemini-2.5-flash
+      api_key: os.environ/AI_API_KEY
+    model_info:
+      mode: chat
+
+  - model_name: nvidia/nemotron-3-super-120b-a12b
+    litellm_params:
+      model: openrouter/nvidia/nemotron-3-super-120b-a12b
+      api_key: os.environ/AI_API_KEY
+    model_info:
+      mode: chat
+
+  - model_name: mistralai/ministral-8b-2512
+    litellm_params:
+      model: openrouter/mistralai/ministral-8b-2512
+      api_key: os.environ/AI_API_KEY
+    model_info:
+      mode: chat
+
+  - model_name: deepseek/deepseek-v4-flash
+    litellm_params:
+      model: openrouter/deepseek/deepseek-v4-flash
+      api_key: os.environ/AI_API_KEY
+    model_info:
+      mode: chat
+
+  - model_name: qwen/qwen3.7-flash
+    litellm_params:
+      model: openrouter/qwen/qwen3.7-flash
+      api_key: os.environ/AI_API_KEY
+    model_info:
+      mode: chat
+
+  - model_name: z-ai/glm-5.3-flash
+    litellm_params:
+      model: openrouter/z-ai/glm-5.3-flash
+      api_key: os.environ/AI_API_KEY
+    model_info:
+      mode: chat
+
+  - model_name: moonshotai/kimi-k2.5
+    litellm_params:
+      model: openrouter/moonshotai/kimi-k2.5
+      api_key: os.environ/AI_API_KEY
+    model_info:
+      mode: chat
+
+  # --- Embedding-Modell --------------------------------------------------
+  # Für RAG-Workflows in n8n und Open WebUI. text-embedding-3-small ist der
+  # beste OpenAI-Embedder für Kosten/Qualität; 1536 Dimensionen, passend zu
+  # pgvector. mode: embedding hält den Eintrag aus dem Chat-Schlüssel heraus,
+  # den "make bootstrap" erzeugt — deshalb steht er nicht im Chat-Modellwähler
+  # von Open WebUI. Mit dem Master-Key ist er dagegen sichtbar; RAG in Open
+  # WebUI und n8n benutzt ihn über EMBEDDING_MODEL.
+  - model_name: text-embedding-3-small
+    litellm_params:
+      model: openrouter/openai/text-embedding-3-small
+      api_key: os.environ/AI_API_KEY
+    model_info:
+      mode: embedding
+
+  # --- Bildmodell --------------------------------------------------------
+  # Open WebUI ruft für Bilder immer POST {base}/images/generations auf,
+  # OpenRouter bedient diesen Pfad nicht.
+  #
+  # LiteLLM löst das intern: statt auf /api/v1/images umzuschreiben, schickt
+  # es eine ganz normale Chat-Completion mit image_config und liest das Bild
+  # aus message.images[] der Antwort. Wichtig ist nur das Ergebnis — der
+  # OpenAI-Pfad funktioniert, ohne dass er selbst übersetzt werden muss.
+  #
+  # mode: image_generation ist die Grundlage dafür, dass "make bootstrap"
+  # dieses Modell nicht in den Chat-Schlüssel aufnimmt. /v1/models selbst
+  # blendet nichts aus: es liefert, was der anfragende Schlüssel darf.
+  - model_name: google/gemini-2.5-flash-image
+    litellm_params:
+      model: openrouter/google/gemini-2.5-flash-image
+      api_key: os.environ/AI_API_KEY
+    model_info:
+      mode: image_generation
+
+litellm_settings:
+  # Open WebUI schickt Parameter mit, die nicht jedes Modell kennt
+  # (z. B. seed, logit_bias). Ohne drop_params quittiert der Provider das
+  # mit 400 statt die Anfrage einfach zu bearbeiten.
+  drop_params: true
+
+  # Kostenbremse in USD über einen Zeitraum, Chat und Bilder zusammen — das
+  # ist die Grösse, die am Ende tatsächlich abgerechnet wird.
+  # Greift proxy-weit; pro Teilnehmenden siehe Virtual Keys im README.
+  max_budget: os.environ/LITELLM_MAX_BUDGET_USD
+  budget_duration: os.environ/LITELLM_BUDGET_DURATION
+
+general_settings:
+  # Der Schlüssel, mit dem Open WebUI und n8n sich am Proxy anmelden, und
+  # zugleich das Admin-Passwort der LiteLLM-Oberfläche. NICHT der
+  # OpenRouter-Schlüssel — der bleibt im Container und erreicht keinen Browser.
+  master_key: os.environ/LITELLM_MASTER_KEY
+
+  # Ohne Datenbank verliert der Proxy bei jedem Neustart alle Virtual Keys
+  # und die gesamte Ausgaben-Historie. Wir hängen uns an den vorhandenen
+  # pgvector-Container (eigene Datenbank litellm), statt einen zweiten
+  # Datenbankdienst in den Stack zu stellen.
+  database_url: os.environ/DATABASE_URL

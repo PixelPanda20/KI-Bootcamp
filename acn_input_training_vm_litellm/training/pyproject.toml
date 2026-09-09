@@ -1,0 +1,54 @@
+[project]
+name = "bit-bootcamp-training"
+version = "1.0.0"
+description = "Arbeitsumgebung der Lernenden — KI-Bootcamp des BIT (Tag 3: Agentic AI)"
+requires-python = "==3.12.*"
+
+dependencies = [
+    # --- LLM-Zugriff (OpenAI-kompatibel: OpenRouter und Azure Foundry) ---
+    "openai>=1.60,<2",
+    "httpx>=0.28,<0.29",
+    "python-dotenv>=1.0",
+    "pydantic>=2.10,<3",
+
+    # --- Agentic AI Frameworks (Tag 3) ---
+    "langchain>=0.3,<0.4",
+    "langchain-openai>=0.2,<0.4",
+    "langchain-community>=0.3,<0.4",
+    "langgraph>=0.2,<0.4",
+    # Obergrenze notwendig: 0.2.0 deklariert langchain-core>=0.3.36, importiert
+    # aber langchain_core.messages.content — das existiert erst ab
+    # langchain-core 1.x. Mit dem hier gepinnten langchain 0.3 ist 0.2.0
+    # deshalb nicht importierbar (ModuleNotFoundError), obwohl der Resolver
+    # zufrieden ist. 0.1.14 läuft gegen langchain-core 0.3 und mcp 1.29.
+    "langchain-mcp-adapters>=0.1,<0.2",
+
+    # --- MCP / Tool-Server ---
+    "fastmcp>=2.0",
+    "mcp>=1.2",
+
+    # --- API- und Web-Layer für eigene Services ---
+    "fastapi>=0.115,<0.116",
+    "uvicorn[standard]>=0.34,<0.35",
+    "flask>=3.0,<4",
+
+    # --- RAG / Vector Store ---
+    "chromadb>=0.6,<1.1",
+    "psycopg[binary]>=3.2",
+    "pgvector>=0.3",
+
+    # --- Notebooks und CLI-Ausgabe ---
+    "ipykernel>=6.29",
+    "jupyterlab>=4.3",
+    "rich>=13.9",
+]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
